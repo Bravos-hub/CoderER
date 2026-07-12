@@ -1,0 +1,28 @@
+FROM node:24-bookworm-slim AS build
+WORKDIR /workspace
+ENV NEXT_TELEMETRY_DISABLED=1 npm_config_audit=false npm_config_fund=false
+COPY package.json package-lock.json ./
+COPY apps/api/package.json apps/api/package.json
+COPY apps/web/package.json apps/web/package.json
+COPY apps/worker/package.json apps/worker/package.json
+COPY packages/config/package.json packages/config/package.json
+COPY packages/contracts/package.json packages/contracts/package.json
+COPY packages/database/package.json packages/database/package.json
+COPY packages/github/package.json packages/github/package.json
+COPY packages/logger/package.json packages/logger/package.json
+COPY packages/repository/package.json packages/repository/package.json
+RUN npm ci --ignore-scripts
+COPY tsconfig.base.json ./
+COPY apps/web apps/web
+COPY packages/contracts packages/contracts
+RUN npm run build -w @codeer/contracts && npm run build -w @codeer/web
+
+FROM node:24-bookworm-slim AS runtime
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
+WORKDIR /workspace
+RUN groupmod -g 10001 node && usermod -u 10001 -g 10001 node
+COPY --from=build --chown=node:node /workspace/apps/web/.next/standalone ./
+COPY --from=build --chown=node:node /workspace/apps/web/.next/static ./apps/web/.next/static
+USER node
+EXPOSE 3000
+CMD ["node", "apps/web/server.js"]

@@ -1,0 +1,13 @@
+# Default owner
+* @Bravos-hub
+
+# Security-sensitive boundaries
+/.github/ @Bravos-hub
+/SECURITY.md @Bravos-hub
+/docs/security/ @Bravos-hub
+/apps/api/src/security/ @Bravos-hub
+/packages/config/ @Bravos-hub
+/packages/github/ @Bravos-hub
+/packages/repository/ @Bravos-hub
+/infra/docker/ @Bravos-hub
+/docker-compose.yml @Bravos-hub

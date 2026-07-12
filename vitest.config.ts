@@ -1,0 +1,19 @@
+import { fileURLToPath } from 'node:url';
+import { defineConfig } from 'vitest/config';
+
+const source = (relativePath: string) => fileURLToPath(new URL(relativePath, import.meta.url));
+
+export default defineConfig({
+  resolve: {
+    alias: {
+      '@codeer/config': source('./packages/config/src/index.ts'),
+      '@codeer/contracts': source('./packages/contracts/src/index.ts'),
+      '@codeer/github': source('./packages/github/src/index.ts'),
+      '@codeer/logger': source('./packages/logger/src/index.ts'),
+      '@codeer/repository': source('./packages/repository/src/index.ts'),
+    },
+  },
+  test: {
+    exclude: ['**/node_modules/**', '**/dist/**', '**/.next/**'],
+  },
+});

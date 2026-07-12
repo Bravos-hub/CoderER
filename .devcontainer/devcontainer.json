@@ -1,0 +1,35 @@
+{
+  "name": "CodeER Secure Workspace",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:1-24-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "version": "latest",
+      "moby": true
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  "forwardPorts": [3000, 4100, 5432, 6379],
+  "portsAttributes": {
+    "3000": { "label": "CodeER Web", "onAutoForward": "notify" },
+    "4100": { "label": "CodeER API", "onAutoForward": "silent" },
+    "5432": { "label": "PostgreSQL", "onAutoForward": "ignore" },
+    "6379": { "label": "Redis", "onAutoForward": "ignore" }
+  },
+  "postCreateCommand": "npm ci --ignore-scripts --no-audit --no-fund && npm run db:generate",
+  "remoteUser": "node",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "Prisma.prisma",
+        "GitHub.vscode-github-actions"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "files.eol": "\n",
+        "security.workspace.trust.untrustedFiles": "newWindow"
+      }
+    }
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "name": "codeer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI emergency response for broken software.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "engines": {
+    "node": ">=22 <27",
+    "npm": ">=10"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n web,api,worker -c auto \"npm run dev -w @codeer/web\" \"npm run dev -w @codeer/api\" \"npm run dev -w @codeer/worker\"",
+    "build": "npm run build:packages && npm run build:apps",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "npm run workspace:check && npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build && npm run security:check",
+    "db:generate": "npm run db:generate -w @codeer/database",
+    "db:migrate": "npm run db:migrate -w @codeer/database",
+    "db:seed": "npm run db:seed -w @codeer/database",
+    "infra:up": "docker compose up -d postgres redis",
+    "infra:down": "docker compose down",
+    "workspace:check": "node scripts/check-workspace.mjs",
+    "clean": "node scripts/clean.mjs",
+    "predev": "npm run build:packages",
+    "build:packages": "npm run build -w @codeer/contracts && npm run build -w @codeer/config && npm run build -w @codeer/logger && npm run build -w @codeer/database && npm run build -w @codeer/github && npm run build -w @codeer/repository",
+    "build:apps": "npm run build -w @codeer/api && npm run build -w @codeer/worker && npm run build -w @codeer/web",
+    "security:audit": "npm audit --omit=dev --audit-level=high",
+    "security:secrets": "node scripts/scan-secrets.mjs",
+    "security:sbom": "node scripts/generate-sbom.mjs",
+    "security:check": "npm run security:secrets && npm run security:audit"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "26.1.1",
+    "@types/pg": "^8.16.0",
+    "concurrently": "10.0.3",
+    "eslint": "10.7.0",
+    "globals": "16.5.0",
+    "prettier": "3.9.5",
+    "tsx": "4.23.0",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.63.0",
+    "vitest": "4.1.10"
+  }
+}
