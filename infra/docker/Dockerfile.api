@@ -5,6 +5,7 @@ COPY package.json package-lock.json ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY apps/worker/package.json apps/worker/package.json
+COPY packages/ai/package.json packages/ai/package.json
 COPY packages/config/package.json packages/config/package.json
 COPY packages/contracts/package.json packages/contracts/package.json
 COPY packages/database/package.json packages/database/package.json
@@ -17,6 +18,7 @@ COPY packages/security/package.json packages/security/package.json
 RUN npm ci --ignore-scripts
 COPY tsconfig.base.json ./
 COPY apps/api apps/api
+COPY packages/ai packages/ai
 COPY packages/config packages/config
 COPY packages/contracts packages/contracts
 COPY packages/database packages/database
@@ -30,6 +32,7 @@ RUN npm run build -w @codeer/contracts \
   && npm run build -w @codeer/incidents \
   && npm run build -w @codeer/security \
   && npm run build -w @codeer/sandbox \
+  && npm run build -w @codeer/ai \
   && npm run build -w @codeer/database \
   && npm run build -w @codeer/api \
   && npm prune --omit=dev
@@ -42,6 +45,7 @@ COPY --from=build --chown=node:node /workspace/package.json /workspace/package-l
 COPY --from=build --chown=node:node /workspace/node_modules ./node_modules
 COPY --from=build --chown=node:node /workspace/apps/api/package.json ./apps/api/package.json
 COPY --from=build --chown=node:node /workspace/apps/api/dist ./apps/api/dist
+COPY --from=build --chown=node:node /workspace/packages/ai ./packages/ai
 COPY --from=build --chown=node:node /workspace/packages/config ./packages/config
 COPY --from=build --chown=node:node /workspace/packages/contracts ./packages/contracts
 COPY --from=build --chown=node:node /workspace/packages/database ./packages/database

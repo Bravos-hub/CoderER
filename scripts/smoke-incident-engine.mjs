@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { randomUUID } from 'node:crypto';
 import {
   ActorRole,
@@ -15,19 +16,20 @@ import {
 } from '@codeer/database';
 
 const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) throw new Error('DATABASE_URL is required');
 const workerDatabaseUrl = process.env.DATABASE_WORKER_URL;
-if (!workerDatabaseUrl) throw new Error('DATABASE_WORKER_URL is required');
+if (!databaseUrl || !workerDatabaseUrl) {
+  throw new Error('DATABASE_URL and DATABASE_WORKER_URL are required');
+}
 
 const pool = createDatabasePool(databaseUrl, {
   max: 4,
   application_name: 'codeer-incident-smoke',
 });
+const store = new IncidentStore(pool);
 const workerPool = createDatabasePool(workerDatabaseUrl, {
-  max: 2,
+  max: 4,
   application_name: 'codeer-incident-smoke-worker',
 });
-const store = new IncidentStore(pool);
 const workerStore = new IncidentStore(workerPool);
 const organizationId = randomUUID();
 const otherOrganizationId = randomUUID();
@@ -142,20 +144,17 @@ try {
     throw new Error('Evidence secret redaction failed');
   }
 
-  let triageMessage;
-  for (let attempt = 1; attempt <= 5; attempt += 1) {
-    const claimed = await workerStore.claimOutboxBatch('ci-outbox-smoke', 10, 60_000);
-    triageMessage = claimed.find(
-      (message) =>
-        message.partitionKey === created.id && message.topic === 'incident.triage.requested',
-    );
-    if (triageMessage) break;
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
+  // A reused development database can contain pending messages from earlier
+  // smoke runs, so claim a sufficiently broad batch to include this run.
+  const claimed = await workerStore.claimOutboxBatch('ci-outbox-smoke', 1_000, 60_000);
+  const triageMessage = claimed.find(
+    (message) =>
+      message.partitionKey === created.id && message.topic === 'incident.triage.requested',
+  );
   if (!triageMessage) throw new Error('Transactional outbox did not expose the triage request');
   await workerStore.markOutboxPublished(triageMessage.id);
 
-  const triage = await store.processTriage({
+  const triage = await workerStore.processTriage({
     incidentId: created.id,
     organizationId,
     requestedAt: new Date().toISOString(),
@@ -195,6 +194,5 @@ try {
     }),
   );
 } finally {
-  await pool.end();
-  await workerPool.end();
+  await Promise.all([pool.end(), workerPool.end()]);
 }

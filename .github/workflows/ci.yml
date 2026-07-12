@@ -61,11 +61,13 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run test
+      - run: npm run test:evaluation:investigation
       - run: npm run build
       - run: npm run db:migrate:all
       - run: npm run db:provision:runtime
       - run: npm run db:verify:roles
       - run: npm run test:integration:incident
+      - run: npm run test:integration:investigation
       - run: npm run test:integration:sandbox:persistence
       - run: npm run security:check
 

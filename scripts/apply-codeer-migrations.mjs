@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { Pool } from 'pg';
@@ -22,6 +23,31 @@ const migrations = [
       'SandboxLogChunk',
       'SandboxArtifact',
       'SandboxCleanupRecord',
+    ],
+  },
+  {
+    id: '20260712000300_sprint5_codex_orchestration',
+    file: '../packages/database/prisma/migrations/20260712000300_sprint5_codex_orchestration/migration.sql',
+    requiredTables: [
+      'OrganizationAiPolicy',
+      'PromptTemplateVersion',
+      'InvestigationRun',
+      'InvestigationCheckpoint',
+      'InvestigationEvent',
+      'AgentRun',
+      'ModelInvocation',
+      'InvestigationToolCall',
+      'InvestigationContextPackage',
+      'InvestigationContextItem',
+      'GuardrailDecision',
+      'RootCauseHypothesis',
+      'Diagnosis',
+      'DiagnosisEvidenceLink',
+      'TreatmentPlan',
+      'TreatmentPlanStep',
+      'PlanApproval',
+      'AiUsageLedger',
+      'EvaluationRun',
     ],
   },
 ];

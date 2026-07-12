@@ -25,7 +25,8 @@
     "pg": "8.22.0",
     "@codeer/contracts": "0.1.0",
     "@codeer/incidents": "0.1.0",
-    "@codeer/sandbox": "0.1.0"
+    "@codeer/sandbox": "0.1.0",
+    "@codeer/ai": "0.1.0"
   },
   "devDependencies": {
     "@types/pg": "8.16.0",

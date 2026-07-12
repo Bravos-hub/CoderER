@@ -64,6 +64,14 @@ export enum IncidentPermission {
   READ_REPRODUCTION = 'incident:reproduction:read',
   CANCEL_REPRODUCTION = 'incident:reproduction:cancel',
   OVERRIDE_SANDBOX_POLICY = 'incident:sandbox:override',
+  START_INVESTIGATION = 'incident:investigation:start',
+  READ_INVESTIGATION = 'incident:investigation:read',
+  CANCEL_INVESTIGATION = 'incident:investigation:cancel',
+  RESUME_INVESTIGATION = 'incident:investigation:resume',
+  REQUEST_PLAN_REVISION = 'incident:treatment-plan:revision',
+  APPROVE_TREATMENT_PLAN = 'incident:treatment-plan:approve',
+  REJECT_TREATMENT_PLAN = 'incident:treatment-plan:reject',
+  ADMINISTER_AI_POLICY = 'organization:ai-policy:manage',
 }
 
 export enum RepositoryPermission {
@@ -98,6 +106,21 @@ export enum IncidentEventType {
   SANDBOX_INFRASTRUCTURE_FAILED = 'SANDBOX_INFRASTRUCTURE_FAILED',
   SANDBOX_CLEANUP_COMPLETED = 'SANDBOX_CLEANUP_COMPLETED',
   SANDBOX_CLEANUP_FAILED = 'SANDBOX_CLEANUP_FAILED',
+  INVESTIGATION_REQUESTED = 'INVESTIGATION_REQUESTED',
+  INVESTIGATION_STARTED = 'INVESTIGATION_STARTED',
+  INVESTIGATION_CHECKPOINTED = 'INVESTIGATION_CHECKPOINTED',
+  INVESTIGATION_INSUFFICIENT_EVIDENCE = 'INVESTIGATION_INSUFFICIENT_EVIDENCE',
+  INVESTIGATION_COMPLETED = 'INVESTIGATION_COMPLETED',
+  INVESTIGATION_CANCELLED = 'INVESTIGATION_CANCELLED',
+  INVESTIGATION_FAILED = 'INVESTIGATION_FAILED',
+  DIAGNOSIS_PUBLISHED = 'DIAGNOSIS_PUBLISHED',
+  TREATMENT_PLAN_PROPOSED = 'TREATMENT_PLAN_PROPOSED',
+  TREATMENT_PLAN_APPROVAL_RECORDED = 'TREATMENT_PLAN_APPROVAL_RECORDED',
+  TREATMENT_PLAN_REVISION_REQUESTED = 'TREATMENT_PLAN_REVISION_REQUESTED',
+  TREATMENT_PLAN_APPROVED = 'TREATMENT_PLAN_APPROVED',
+  TREATMENT_PLAN_REJECTED = 'TREATMENT_PLAN_REJECTED',
+  AI_GUARDRAIL_BLOCKED = 'AI_GUARDRAIL_BLOCKED',
+  AI_BUDGET_EXCEEDED = 'AI_BUDGET_EXCEEDED',
 }
 
 export enum EvidenceKind {
@@ -116,6 +139,11 @@ export enum EvidenceKind {
   SANDBOX_ARTIFACT = 'SANDBOX_ARTIFACT',
   FAILURE_REPRODUCTION = 'FAILURE_REPRODUCTION',
   SANDBOX_CLEANUP = 'SANDBOX_CLEANUP',
+  INVESTIGATION_CONTEXT = 'INVESTIGATION_CONTEXT',
+  ROOT_CAUSE_HYPOTHESIS = 'ROOT_CAUSE_HYPOTHESIS',
+  DIAGNOSIS = 'DIAGNOSIS',
+  TREATMENT_PLAN = 'TREATMENT_PLAN',
+  AI_GUARDRAIL = 'AI_GUARDRAIL',
 }
 
 export enum EvidenceSource {
@@ -884,3 +912,341 @@ export const SandboxLogQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(500).default(100),
 });
 export type SandboxLogQuery = z.infer<typeof SandboxLogQuerySchema>;
+
+export enum AiProvider {
+  OPENAI = 'OPENAI',
+}
+
+export enum InvestigationStatus {
+  REQUESTED = 'REQUESTED',
+  POLICY_CHECK = 'POLICY_CHECK',
+  CONTEXT_BUILDING = 'CONTEXT_BUILDING',
+  TRIAGE = 'TRIAGE',
+  MAPPING = 'MAPPING',
+  HYPOTHESIS = 'HYPOTHESIS',
+  VALIDATION = 'VALIDATION',
+  SECURITY_REVIEW = 'SECURITY_REVIEW',
+  PLAN_COMPOSITION = 'PLAN_COMPOSITION',
+  CRITIC_REVIEW = 'CRITIC_REVIEW',
+  AWAITING_APPROVAL = 'AWAITING_APPROVAL',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+  REVISION_REQUESTED = 'REVISION_REQUESTED',
+  POLICY_BLOCKED = 'POLICY_BLOCKED',
+  INSUFFICIENT_EVIDENCE = 'INSUFFICIENT_EVIDENCE',
+  CANCELLED = 'CANCELLED',
+  TIMED_OUT = 'TIMED_OUT',
+  MODEL_FAILED = 'MODEL_FAILED',
+  TOOL_FAILED = 'TOOL_FAILED',
+  BUDGET_EXCEEDED = 'BUDGET_EXCEEDED',
+  SECURITY_REJECTED = 'SECURITY_REJECTED',
+}
+
+export enum InvestigationAgentKind {
+  TRIAGE = 'TRIAGE',
+  REPOSITORY_MAPPER = 'REPOSITORY_MAPPER',
+  ROOT_CAUSE_INVESTIGATOR = 'ROOT_CAUSE_INVESTIGATOR',
+  CONTRACT_ANALYST = 'CONTRACT_ANALYST',
+  SECURITY_REVIEWER = 'SECURITY_REVIEWER',
+  PLAN_COMPOSER = 'PLAN_COMPOSER',
+  INDEPENDENT_CRITIC = 'INDEPENDENT_CRITIC',
+}
+
+export enum AgentRunStatus {
+  PENDING = 'PENDING',
+  RUNNING = 'RUNNING',
+  COMPLETED = 'COMPLETED',
+  FAILED = 'FAILED',
+  CANCELLED = 'CANCELLED',
+  BLOCKED = 'BLOCKED',
+}
+
+export enum ModelInvocationStatus {
+  PENDING = 'PENDING',
+  RUNNING = 'RUNNING',
+  COMPLETED = 'COMPLETED',
+  FAILED = 'FAILED',
+  CANCELLED = 'CANCELLED',
+  BUDGET_EXCEEDED = 'BUDGET_EXCEEDED',
+}
+
+export enum ToolCallStatus {
+  REQUESTED = 'REQUESTED',
+  AUTHORIZED = 'AUTHORIZED',
+  COMPLETED = 'COMPLETED',
+  DENIED = 'DENIED',
+  FAILED = 'FAILED',
+}
+
+export enum GuardrailOutcome {
+  ALLOW = 'ALLOW',
+  BLOCK = 'BLOCK',
+  REVIEW = 'REVIEW',
+}
+
+export enum HypothesisDisposition {
+  PRIMARY = 'PRIMARY',
+  ALTERNATIVE = 'ALTERNATIVE',
+  REJECTED = 'REJECTED',
+}
+
+export enum TreatmentPlanStatus {
+  DRAFT = 'DRAFT',
+  SECURITY_REVIEW = 'SECURITY_REVIEW',
+  CRITIC_REVIEW = 'CRITIC_REVIEW',
+  AWAITING_APPROVAL = 'AWAITING_APPROVAL',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+  REVISION_REQUESTED = 'REVISION_REQUESTED',
+  SUPERSEDED = 'SUPERSEDED',
+}
+
+export enum PlanApprovalDecision {
+  APPROVE = 'APPROVE',
+  REJECT = 'REJECT',
+  REQUEST_REVISION = 'REQUEST_REVISION',
+}
+
+export enum RiskLevel {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL',
+}
+
+export enum CitationSourceType {
+  INCIDENT_EVIDENCE = 'INCIDENT_EVIDENCE',
+  INCIDENT_EVENT = 'INCIDENT_EVENT',
+  REPRODUCTION = 'REPRODUCTION',
+  SANDBOX_LOG = 'SANDBOX_LOG',
+  SANDBOX_ARTIFACT = 'SANDBOX_ARTIFACT',
+  REPOSITORY_FILE = 'REPOSITORY_FILE',
+  REPOSITORY_HEALTH = 'REPOSITORY_HEALTH',
+}
+
+export const InvestigationCitationSchema = z
+  .object({
+    sourceType: z.nativeEnum(CitationSourceType),
+    sourceId: UuidSchema,
+    digest: z.string().regex(/^[0-9a-f]{64}$/),
+    path: z.string().trim().min(1).max(1024).optional(),
+    lineStart: z.number().int().positive().optional(),
+    lineEnd: z.number().int().positive().optional(),
+    label: z.string().trim().min(1).max(240),
+    excerpt: z.string().max(2_000).optional(),
+  })
+  .superRefine((value, context) => {
+    if ((value.lineStart === undefined) !== (value.lineEnd === undefined)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['lineEnd'],
+        message: 'lineStart and lineEnd must be supplied together',
+      });
+    }
+    if (
+      value.lineStart !== undefined &&
+      value.lineEnd !== undefined &&
+      value.lineEnd < value.lineStart
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['lineEnd'],
+        message: 'lineEnd must be greater than or equal to lineStart',
+      });
+    }
+  });
+export type InvestigationCitation = z.infer<typeof InvestigationCitationSchema>;
+
+export const RootCauseHypothesisSchema = z.object({
+  id: UuidSchema,
+  disposition: z.nativeEnum(HypothesisDisposition),
+  title: z.string().trim().min(3).max(240),
+  mechanism: z.string().trim().min(10).max(6_000),
+  confidence: z.number().min(0).max(1),
+  supportingEvidence: z.array(InvestigationCitationSchema).min(1).max(100),
+  contradictingEvidence: z.array(InvestigationCitationSchema).max(100).default([]),
+  missingEvidence: z.array(z.string().trim().min(1).max(1_000)).max(50).default([]),
+  assumptions: z.array(z.string().trim().min(1).max(1_000)).max(50).default([]),
+});
+export type RootCauseHypothesis = z.infer<typeof RootCauseHypothesisSchema>;
+
+export const DiagnosisSchema = z.object({
+  id: UuidSchema,
+  investigationId: UuidSchema,
+  summary: z.string().trim().min(10).max(10_000),
+  failureMechanism: z.string().trim().min(10).max(10_000),
+  blastRadius: z.string().trim().min(3).max(5_000),
+  securityImpact: z.string().trim().min(3).max(5_000),
+  confidence: z.number().min(0).max(1),
+  confidenceBand: z.enum(['LOW', 'MEDIUM', 'HIGH']),
+  hypotheses: z.array(RootCauseHypothesisSchema).min(1).max(20),
+  unknowns: z.array(z.string().trim().min(1).max(1_000)).max(100).default([]),
+  citations: z.array(InvestigationCitationSchema).min(1).max(250),
+  schemaVersion: z.string().min(1).max(64),
+  contentHash: z.string().regex(/^[0-9a-f]{64}$/),
+  createdAt: z.string().datetime(),
+});
+export type Diagnosis = z.infer<typeof DiagnosisSchema>;
+
+export const TreatmentPlanStepSchema = z.object({
+  sequence: z.number().int().positive(),
+  title: z.string().trim().min(3).max(240),
+  objective: z.string().trim().min(10).max(4_000),
+  affectedComponents: z.array(z.string().trim().min(1).max(512)).min(1).max(50),
+  scopeRestrictions: z.array(z.string().trim().min(1).max(1_000)).max(50).default([]),
+  risk: z.nativeEnum(RiskLevel),
+  securityConsiderations: z.array(z.string().trim().min(1).max(1_000)).max(50).default([]),
+  verificationCommands: z.array(SandboxCommandRequestSchema).max(20).default([]),
+  expectedResults: z.array(z.string().trim().min(1).max(1_000)).min(1).max(50),
+  rollbackProcedure: z.string().trim().min(10).max(4_000),
+  citations: z.array(InvestigationCitationSchema).min(1).max(100),
+});
+export type TreatmentPlanStep = z.infer<typeof TreatmentPlanStepSchema>;
+
+export const TreatmentPlanSchema = z.object({
+  id: UuidSchema,
+  investigationId: UuidSchema,
+  diagnosisId: UuidSchema,
+  version: z.number().int().positive(),
+  status: z.nativeEnum(TreatmentPlanStatus),
+  goal: z.string().trim().min(10).max(4_000),
+  risk: z.nativeEnum(RiskLevel),
+  steps: z.array(TreatmentPlanStepSchema).min(1).max(50),
+  verificationMatrix: z
+    .array(
+      z.object({
+        requirement: z.string().trim().min(1).max(1_000),
+        evidenceRequired: z.string().trim().min(1).max(1_000),
+        mandatory: z.boolean(),
+      }),
+    )
+    .min(1)
+    .max(100),
+  rollbackStrategy: z.string().trim().min(10).max(10_000),
+  compatibilityImpact: z.string().trim().min(3).max(5_000),
+  migrationImpact: z.string().trim().min(3).max(5_000),
+  knownLimitations: z.array(z.string().trim().min(1).max(1_000)).max(100).default([]),
+  requiredApprovals: z.number().int().min(1).max(10),
+  schemaVersion: z.string().min(1).max(64),
+  contentHash: z.string().regex(/^[0-9a-f]{64}$/),
+  createdAt: z.string().datetime(),
+});
+export type TreatmentPlan = z.infer<typeof TreatmentPlanSchema>;
+
+export const AiPolicySchema = z.object({
+  provider: z.nativeEnum(AiProvider).default(AiProvider.OPENAI),
+  allowedModels: z.array(z.string().trim().min(1).max(128)).min(1).max(20),
+  modelByAgent: z.record(z.nativeEnum(InvestigationAgentKind), z.string().trim().min(1).max(128)),
+  allowedTools: z.array(z.string().trim().min(1).max(128)).max(100),
+  maximumConcurrentInvestigations: z.number().int().min(1).max(100).default(4),
+  maximumModelInvocations: z.number().int().min(1).max(100).default(20),
+  maximumToolCalls: z.number().int().min(0).max(1_000).default(100),
+  maximumInputTokens: z.number().int().min(1_000).max(5_000_000).default(200_000),
+  maximumOutputTokens: z.number().int().min(256).max(500_000).default(30_000),
+  maximumCostUsd: z.number().min(0.01).max(10_000).default(25),
+  timeoutMs: z
+    .number()
+    .int()
+    .min(10_000)
+    .max(6 * 60 * 60 * 1000)
+    .default(45 * 60 * 1000),
+  retentionDays: z.number().int().min(1).max(3_650).default(30),
+  requireHumanApproval: z.literal(true).default(true),
+  requireIndependentCritic: z.literal(true).default(true),
+  requireSecurityReview: z.literal(true).default(true),
+  storeProviderResponses: z.boolean().default(false),
+  policyVersion: z.string().trim().min(1).max(64),
+});
+export type AiPolicy = z.infer<typeof AiPolicySchema>;
+
+export const StartInvestigationSchema = z.object({
+  reproductionId: UuidSchema,
+  requestedModels: z.array(z.string().trim().min(1).max(128)).max(10).optional(),
+  focusAreas: z.array(z.string().trim().min(1).max(240)).max(20).default([]),
+  additionalContext: z.string().trim().max(10_000).optional(),
+});
+export type StartInvestigationInput = z.infer<typeof StartInvestigationSchema>;
+
+export const InvestigationSchema = z.object({
+  id: UuidSchema,
+  organizationId: UuidSchema,
+  incidentId: UuidSchema,
+  reproductionId: UuidSchema,
+  status: z.nativeEnum(InvestigationStatus),
+  policyVersion: z.string().min(1).max(64),
+  promptTemplateVersion: z.string().min(1).max(64),
+  contextHash: z
+    .string()
+    .regex(/^[0-9a-f]{64}$/)
+    .nullable(),
+  leaseOwner: z.string().max(255).nullable(),
+  leaseExpiresAt: z.string().datetime().nullable(),
+  cancellationRequestedAt: z.string().datetime().nullable(),
+  startedAt: z.string().datetime().nullable(),
+  completedAt: z.string().datetime().nullable(),
+  errorCode: z.string().max(128).nullable(),
+  errorMessage: z.string().max(2_000).nullable(),
+  totalInputTokens: z.number().int().nonnegative(),
+  totalOutputTokens: z.number().int().nonnegative(),
+  estimatedCostUsd: z.number().nonnegative(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+export type Investigation = z.infer<typeof InvestigationSchema>;
+
+export const InvestigationListQuerySchema = z.object({
+  cursor: z.string().min(1).max(512).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+  status: z.nativeEnum(InvestigationStatus).optional(),
+});
+export type InvestigationListQuery = z.infer<typeof InvestigationListQuerySchema>;
+
+export const InvestigationEventSchema = z.object({
+  id: UuidSchema,
+  investigationId: UuidSchema,
+  sequence: z.number().int().positive(),
+  type: z.string().trim().min(1).max(128),
+  payload: z.record(z.string(), z.unknown()),
+  previousHash: z.string().length(64).nullable(),
+  eventHash: z.string().length(64),
+  occurredAt: z.string().datetime(),
+});
+export type InvestigationEvent = z.infer<typeof InvestigationEventSchema>;
+
+export const InvestigationToolCallSchema = z.object({
+  id: UuidSchema,
+  investigationId: UuidSchema,
+  agentKind: z.nativeEnum(InvestigationAgentKind),
+  toolName: z.string().trim().min(1).max(128),
+  status: z.nativeEnum(ToolCallStatus),
+  inputHash: z.string().length(64),
+  outputHash: z.string().length(64).nullable(),
+  deniedReason: z.string().max(2_000).nullable(),
+  durationMs: z.number().int().nonnegative().nullable(),
+  createdAt: z.string().datetime(),
+});
+export type InvestigationToolCall = z.infer<typeof InvestigationToolCallSchema>;
+
+export const TreatmentPlanDecisionSchema = z.object({
+  decision: z.nativeEnum(PlanApprovalDecision),
+  comment: z.string().trim().min(10).max(5_000),
+  expectedVersion: z.number().int().positive(),
+});
+export type TreatmentPlanDecisionInput = z.infer<typeof TreatmentPlanDecisionSchema>;
+
+export const InvestigationJobSchema = z.object({
+  investigationId: UuidSchema,
+  incidentId: UuidSchema,
+  organizationId: UuidSchema,
+  reproductionId: UuidSchema,
+  requestedBy: z.string().min(1).max(255),
+  requestId: z.string().min(1).max(128),
+  correlationId: z.string().min(1).max(128),
+  requestedAt: z.string().datetime(),
+  attempt: z.number().int().positive().default(1),
+});
+export type InvestigationJob = z.infer<typeof InvestigationJobSchema>;
+
+export const INVESTIGATION_QUEUE = 'codeer-investigation';
+export const INVESTIGATION_JOB = 'investigation.execute';
+export const INVESTIGATION_OUTBOX_TOPIC = 'investigation.requested';

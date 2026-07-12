@@ -318,3 +318,5 @@ export class RepositoryWorkspace {
     }
   }
 }
+
+export * from './inspector.js';

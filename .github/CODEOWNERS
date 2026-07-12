@@ -8,6 +8,10 @@
 /docs/operations/SANDBOX_RUNBOOK.md @Bravos-hub
 /apps/api/src/security/ @Bravos-hub
 /apps/api/src/reproductions/ @Bravos-hub
+/apps/api/src/investigations/ @Bravos-hub
+/apps/web/lib/user-session.ts @Bravos-hub
+/apps/worker/src/investigation-worker.ts @Bravos-hub
+/packages/ai/ @Bravos-hub
 /apps/worker/src/sandbox-execution-worker.ts @Bravos-hub
 /apps/worker/src/outbox-dispatcher.ts @Bravos-hub
 /packages/config/ @Bravos-hub
@@ -21,6 +25,8 @@
 /scripts/reconcile-sandboxes.mjs @Bravos-hub
 /scripts/smoke-sandbox-engine.mjs @Bravos-hub
 /scripts/smoke-sandbox-persistence.mjs @Bravos-hub
+/scripts/smoke-investigation-persistence.mjs @Bravos-hub
+/scripts/evaluate-investigation-engine.ts @Bravos-hub
 /.github/workflows/sandbox-security.yml @Bravos-hub
 /infra/docker/ @Bravos-hub
 /docker-compose.yml @Bravos-hub
