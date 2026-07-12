@@ -8,7 +8,8 @@
     "paths": {
       "@codeer/contracts": ["../contracts/dist/index.d.ts"],
       "@codeer/incidents": ["../incidents/dist/index.d.ts"],
-      "@codeer/sandbox": ["../sandbox/dist/index.d.ts"]
+      "@codeer/sandbox": ["../sandbox/dist/index.d.ts"],
+      "@codeer/recovery": ["../recovery/dist/index.d.ts"]
     }
   },
   "include": ["src/**/*.ts"],

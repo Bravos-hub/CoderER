@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { IncidentDetail } from '@codeer/contracts';
 import { ReproductionPanel } from './reproduction-panel';
 import { InvestigationPanel } from './investigation-panel';
+import { RecoveryPanel } from './recovery-panel';
 
 export function IncidentDetailView({ incidentId }: { incidentId: string }) {
   const [detail, setDetail] = useState<IncidentDetail | null>(null);
@@ -176,6 +177,7 @@ export function IncidentDetailView({ incidentId }: { incidentId: string }) {
       </section>
       <ReproductionPanel incidentId={incidentId} />
       <InvestigationPanel incidentId={incidentId} />
+      <RecoveryPanel incidentId={incidentId} />
     </>
   );
 }

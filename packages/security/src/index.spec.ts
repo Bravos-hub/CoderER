@@ -74,3 +74,39 @@ describe('incident role authorization', () => {
     ).toThrow(AuthorizationError);
   });
 });
+
+describe('controlled recovery authorization', () => {
+  it('grants incident commanders recovery execution and publication controls', () => {
+    const roles = [ActorRole.INCIDENT_COMMANDER];
+    expect(hasIncidentPermission(roles, IncidentPermission.START_RECOVERY)).toBe(true);
+    expect(hasIncidentPermission(roles, IncidentPermission.CANCEL_RECOVERY)).toBe(true);
+    expect(hasIncidentPermission(roles, IncidentPermission.APPROVE_RECOVERY_PUBLICATION)).toBe(
+      true,
+    );
+  });
+
+  it('keeps responders and viewers read-only for recoveries', () => {
+    for (const role of [ActorRole.RESPONDER, ActorRole.VIEWER]) {
+      expect(hasIncidentPermission([role], IncidentPermission.READ_RECOVERY)).toBe(true);
+      expect(hasIncidentPermission([role], IncidentPermission.START_RECOVERY)).toBe(false);
+      expect(hasIncidentPermission([role], IncidentPermission.APPROVE_RECOVERY_PUBLICATION)).toBe(
+        false,
+      );
+    }
+  });
+
+  it('grants policy administration only to organization administrators and owners', () => {
+    expect(
+      hasIncidentPermission(
+        [ActorRole.ORGANIZATION_ADMIN],
+        IncidentPermission.ADMINISTER_RECOVERY_POLICY,
+      ),
+    ).toBe(true);
+    expect(
+      hasIncidentPermission(
+        [ActorRole.INCIDENT_COMMANDER],
+        IncidentPermission.ADMINISTER_RECOVERY_POLICY,
+      ),
+    ).toBe(false);
+  });
+});

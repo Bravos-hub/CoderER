@@ -331,6 +331,79 @@ enum RiskLevel {
   CRITICAL
 }
 
+enum RecoveryRunStatus {
+  REQUESTED
+  POLICY_CHECK
+  WORKTREE_PREPARING
+  PATCH_PLANNING
+  PATCH_GENERATING
+  PATCH_VALIDATING
+  SECURITY_REVIEW
+  VERIFYING
+  PACKAGE_BUILDING
+  AWAITING_PUBLICATION_APPROVAL
+  READY_TO_PUBLISH
+  PUBLISHED
+  POLICY_BLOCKED
+  CANCELLED
+  TIMED_OUT
+  PATCH_REJECTED
+  SECURITY_REJECTED
+  VERIFICATION_FAILED
+  WORKTREE_FAILED
+  MODEL_FAILED
+  TOOL_FAILED
+  BUDGET_EXCEEDED
+  CLEANUP_FAILED
+}
+
+enum RecoveryWorktreeStatus {
+  REQUESTED
+  CREATING
+  READY
+  DIRTY
+  REMOVING
+  REMOVED
+  FAILED
+}
+
+enum PatchVersionStatus {
+  PROPOSED
+  VALIDATING
+  ACCEPTED
+  REJECTED
+  SUPERSEDED
+}
+
+enum RecoverySecurityDecision {
+  ALLOW
+  REQUIRE_REVISION
+  BLOCK
+}
+
+enum RecoveryVerificationStatus {
+  PENDING
+  RUNNING
+  PASSED
+  FAILED
+  INCONCLUSIVE
+  CANCELLED
+}
+
+enum RecoveryVerificationCheckStatus {
+  PENDING
+  RUNNING
+  PASSED
+  FAILED
+  SKIPPED
+  BLOCKED
+}
+
+enum PublicationDecision {
+  APPROVE
+  REJECT
+}
+
 model Organization {
   id             String                     @id @default(uuid())
   slug           String                     @unique
@@ -356,6 +429,9 @@ model Organization {
   planApprovals PlanApproval[]
   aiUsage AiUsageLedger[]
   evaluationRuns EvaluationRun[]
+  recoveryPolicies OrganizationRecoveryPolicy[]
+  recoveryRuns RecoveryRun[]
+  recoveryPublicationApprovals RecoveryPublicationApproval[]
   createdAt      DateTime                   @default(now())
   updatedAt      DateTime                   @updatedAt
 }
@@ -380,6 +456,7 @@ model Repository {
   intakes            RepositoryIntake[]
   worktrees          RepositoryWorktree[]
   healthSnapshots    RepositoryHealthSnapshot[]
+  recoveryRuns       RecoveryRun[]
   createdAt          DateTime                   @default(now())
   updatedAt          DateTime                   @updatedAt
 
@@ -464,6 +541,7 @@ model Incident {
   investigations      InvestigationRun[]
   diagnoses           Diagnosis[]
   treatmentPlans      TreatmentPlan[]
+  recoveryRuns        RecoveryRun[]
   reportedAt          DateTime
   acknowledgedAt      DateTime?
   resolvedAt          DateTime?
@@ -1204,6 +1282,7 @@ model TreatmentPlan {
   revisions           TreatmentPlan[]     @relation("PlanVersions")
   steps               TreatmentPlanStep[]
   approvals           PlanApproval[]
+  recoveries          RecoveryRun[]
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
 
@@ -1300,4 +1379,381 @@ model EvaluationRun {
 
   @@index([organizationId, createdAt(sort: Desc)])
   @@index([suiteVersion, datasetVersion, createdAt(sort: Desc)])
+}
+
+
+model OrganizationRecoveryPolicy {
+  id                                String       @id @default(uuid())
+  organizationId                    String
+  policyVersion                     String
+  active                            Boolean      @default(true)
+  allowedPaths                      String[]
+  deniedPaths                       String[]
+  allowedExtensions                 String[]
+  maximumChangedFiles               Int
+  maximumChangedLines               Int
+  maximumPatchHunks                 Int
+  maximumPatchBytes                 Int
+  allowNewFiles                     Boolean      @default(true)
+  allowDeletedFiles                 Boolean      @default(false)
+  allowGeneratedFiles               Boolean      @default(false)
+  allowDependencyChanges            Boolean      @default(false)
+  allowLockfileChanges               Boolean      @default(false)
+  allowWorkflowChanges              Boolean      @default(false)
+  allowInfrastructureChanges        Boolean      @default(false)
+  allowMigrationChanges             Boolean      @default(false)
+  allowSecuritySensitiveChanges     Boolean      @default(false)
+  requireSecurityReview             Boolean      @default(true)
+  requireIndependentVerification    Boolean      @default(true)
+  requireHumanPublicationApproval   Boolean      @default(true)
+  requiredPublicationApprovals      Int          @default(1)
+  retentionDays                     Int          @default(90)
+  contentHash                       String
+  createdBy                         String
+  organization                      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  recoveryRuns                      RecoveryRun[]
+  createdAt                         DateTime     @default(now())
+
+  @@unique([organizationId, policyVersion])
+  @@index([organizationId, active, createdAt(sort: Desc)])
+}
+
+model RecoveryRun {
+  id                       String            @id @default(uuid())
+  organizationId           String
+  incidentId               String
+  treatmentPlanId          String
+  repositoryId             String
+  recoveryPolicyId         String
+  status                   RecoveryRunStatus @default(REQUESTED)
+  policyVersion            String
+  treatmentPlanVersion     Int
+  baseCommitSha            String
+  branchName               String
+  input                    Json
+  requestedBy              String
+  version                  Int               @default(1)
+  currentPatchVersion      Int?
+  currentCheckpoint        Int               @default(0)
+  leaseOwner               String?
+  leaseExpiresAt           DateTime?
+  heartbeatAt              DateTime?
+  cancellationRequestedAt  DateTime?
+  startedAt                DateTime?
+  completedAt              DateTime?
+  errorCode                String?
+  errorMessage             String?
+  organization             Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  incident                 Incident          @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  treatmentPlan            TreatmentPlan     @relation(fields: [treatmentPlanId], references: [id], onDelete: Restrict)
+  repository               Repository        @relation(fields: [repositoryId], references: [id], onDelete: Restrict)
+  recoveryPolicy           OrganizationRecoveryPolicy @relation(fields: [recoveryPolicyId], references: [id], onDelete: Restrict)
+  checkpoints              RecoveryCheckpoint[]
+  events                   RecoveryEvent[]
+  worktree                 RecoveryWorktree?
+  patchVersions            RecoveryPatchVersion[]
+  agentRuns                RecoveryAgentRun[]
+  securityReviews          RecoverySecurityReview[]
+  verificationRuns         RecoveryVerificationRun[]
+  publicationApprovals     RecoveryPublicationApproval[]
+  pullRequestPackages      RecoveryPullRequestPackage[]
+  cleanupRecords           RecoveryCleanupRecord[]
+  createdAt                DateTime           @default(now())
+  updatedAt                DateTime           @updatedAt
+
+  @@index([organizationId, incidentId, createdAt(sort: Desc)])
+  @@index([status, leaseExpiresAt])
+  @@index([treatmentPlanId, createdAt(sort: Desc)])
+  @@index([repositoryId, createdAt(sort: Desc)])
+}
+
+model RecoveryCheckpoint {
+  id          String            @id @default(uuid())
+  recoveryId  String
+  sequence    Int
+  stage       RecoveryRunStatus
+  state       Json
+  stateHash   String
+  leaseOwner  String
+  occurredAt  DateTime
+  recovery    RecoveryRun       @relation(fields: [recoveryId], references: [id], onDelete: Cascade)
+  createdAt   DateTime          @default(now())
+
+  @@unique([recoveryId, sequence])
+  @@index([recoveryId, stage, sequence])
+}
+
+model RecoveryEvent {
+  id            String      @id @default(uuid())
+  recoveryId    String
+  sequence      Int
+  type          String
+  payload       Json
+  previousHash  String?
+  eventHash     String      @unique
+  actorType     ActorType
+  actorId       String?
+  requestId     String?
+  correlationId String?
+  occurredAt    DateTime
+  recovery      RecoveryRun @relation(fields: [recoveryId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+
+  @@unique([recoveryId, sequence])
+  @@index([recoveryId, occurredAt])
+  @@index([correlationId])
+}
+
+model RecoveryWorktree {
+  id                String                 @id @default(uuid())
+  recoveryId        String                 @unique
+  status            RecoveryWorktreeStatus @default(REQUESTED)
+  repositoryPathRef String
+  relativePath      String
+  branchName        String
+  baseCommitSha     String
+  headCommitSha     String?
+  createdByWorker   String?
+  createdAt         DateTime               @default(now())
+  removedAt         DateTime?
+  cleanupDigest     String?
+  recovery          RecoveryRun            @relation(fields: [recoveryId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+}
+
+model RecoveryAgentRun {
+  id                  String         @id @default(uuid())
+  recoveryId          String
+  kind                String
+  status              AgentRunStatus @default(PENDING)
+  model               String
+  promptVersion       String
+  schemaName          String
+  inputHash           String
+  outputHash          String?
+  providerRequestId   String?
+  providerResponseId  String?
+  inputTokens         Int            @default(0)
+  cachedInputTokens   Int            @default(0)
+  outputTokens        Int            @default(0)
+  reasoningTokens     Int            @default(0)
+  estimatedCostUsd    Decimal        @default(0) @db.Decimal(12, 6)
+  durationMs          Int?
+  errorCode           String?
+  errorMessage        String?
+  startedAt           DateTime       @default(now())
+  completedAt         DateTime?
+  recovery            RecoveryRun    @relation(fields: [recoveryId], references: [id], onDelete: Cascade)
+  createdAt           DateTime       @default(now())
+
+  @@index([recoveryId, kind, createdAt(sort: Desc)])
+  @@index([status, createdAt])
+}
+
+model RecoveryPatchVersion {
+  id              String             @id @default(uuid())
+  recoveryId      String
+  version         Int
+  status          PatchVersionStatus @default(PROPOSED)
+  baseCommitSha   String
+  unifiedDiff     String
+  patchDigest     String             @unique
+  changedFiles    Int
+  addedLines      Int
+  deletedLines    Int
+  generatedBy     String
+  modelInvocationId String?
+  createdAt       DateTime           @default(now())
+  recovery        RecoveryRun        @relation(fields: [recoveryId], references: [id], onDelete: Cascade)
+  files           RecoveryPatchFile[]
+  policyDecisions RecoveryPatchPolicyDecision[]
+  securityReviews RecoverySecurityReview[]
+  verificationRuns RecoveryVerificationRun[]
+  pullRequestPackages RecoveryPullRequestPackage[]
+
+  @@unique([recoveryId, version])
+  @@index([recoveryId, status, createdAt(sort: Desc)])
+}
+
+model RecoveryPatchFile {
+  id            String               @id @default(uuid())
+  patchId       String
+  sequence      Int
+  oldPath       String?
+  newPath       String?
+  changeType    String
+  oldDigest     String?
+  newDigest     String?
+  addedLines    Int
+  deletedLines  Int
+  binary        Boolean              @default(false)
+  generated     Boolean              @default(false)
+  sensitive     Boolean              @default(false)
+  patch         RecoveryPatchVersion @relation(fields: [patchId], references: [id], onDelete: Cascade)
+  hunks         RecoveryPatchHunk[]
+  createdAt     DateTime             @default(now())
+
+  @@unique([patchId, sequence])
+  @@index([patchId, newPath])
+}
+
+model RecoveryPatchHunk {
+  id                  String            @id @default(uuid())
+  fileId              String
+  sequence            Int
+  oldStart            Int
+  oldLines            Int
+  newStart            Int
+  newLines            Int
+  header              String
+  content             String
+  addedLines          Int
+  deletedLines        Int
+  treatmentPlanStep   Int
+  evidenceCitations   Json
+  contentHash         String
+  file                RecoveryPatchFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  createdAt           DateTime          @default(now())
+
+  @@unique([fileId, sequence])
+  @@index([contentHash])
+}
+
+model RecoveryPatchPolicyDecision {
+  id            String               @id @default(uuid())
+  patchId       String
+  allowed       Boolean
+  reasons       Json
+  policyVersion String
+  decisionHash  String               @unique
+  evaluatedBy   String
+  evaluatedAt   DateTime
+  patch         RecoveryPatchVersion @relation(fields: [patchId], references: [id], onDelete: Cascade)
+  createdAt     DateTime             @default(now())
+
+  @@index([patchId, evaluatedAt(sort: Desc)])
+}
+
+model RecoverySecurityReview {
+  id             String                   @id @default(uuid())
+  recoveryId     String
+  patchId        String
+  decision       RecoverySecurityDecision
+  summary        String
+  findings       Json
+  reviewerModel  String
+  contentHash    String                   @unique
+  recovery       RecoveryRun              @relation(fields: [recoveryId], references: [id], onDelete: Cascade)
+  patch          RecoveryPatchVersion     @relation(fields: [patchId], references: [id], onDelete: Cascade)
+  createdAt      DateTime                 @default(now())
+
+  @@index([recoveryId, decision, createdAt(sort: Desc)])
+  @@index([patchId, createdAt(sort: Desc)])
+}
+
+model RecoveryVerificationRun {
+  id                       String                     @id @default(uuid())
+  recoveryId               String
+  patchId                  String
+  status                   RecoveryVerificationStatus @default(PENDING)
+  originalFailureResolved  Boolean                    @default(false)
+  unexpectedChanges        Json
+  scopeExpanded            Boolean                    @default(false)
+  summary                  String
+  confidence               Float                      @default(0)
+  contentHash              String?                    @unique
+  sandboxExecutionId       String?
+  startedAt                DateTime?
+  completedAt              DateTime?
+  recovery                 RecoveryRun                @relation(fields: [recoveryId], references: [id], onDelete: Cascade)
+  patch                    RecoveryPatchVersion       @relation(fields: [patchId], references: [id], onDelete: Cascade)
+  checks                   RecoveryVerificationCheck[]
+  createdAt                DateTime                   @default(now())
+
+  @@index([recoveryId, status, createdAt(sort: Desc)])
+  @@index([patchId, createdAt(sort: Desc)])
+}
+
+model RecoveryVerificationCheck {
+  id             String                          @id @default(uuid())
+  verificationId String
+  sequence       Int
+  name           String
+  command        Json?
+  mandatory      Boolean                         @default(true)
+  status         RecoveryVerificationCheckStatus @default(PENDING)
+  exitCode       Int?
+  evidenceIds    String[]
+  summary        String
+  startedAt      DateTime?
+  completedAt    DateTime?
+  verification   RecoveryVerificationRun         @relation(fields: [verificationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime                        @default(now())
+
+  @@unique([verificationId, sequence])
+  @@index([verificationId, status, sequence])
+}
+
+model RecoveryPublicationApproval {
+  id              String              @id @default(uuid())
+  organizationId  String
+  recoveryId      String
+  decision        PublicationDecision
+  comment         String
+  actorId         String
+  actorType       ActorType
+  actorRoles      String[]
+  recoveryVersion Int
+  requestId       String?
+  correlationId   String?
+  decisionHash    String              @unique
+  organization    Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  recovery        RecoveryRun         @relation(fields: [recoveryId], references: [id], onDelete: Cascade)
+  createdAt       DateTime            @default(now())
+
+  @@unique([recoveryId, recoveryVersion, actorId, decision])
+  @@index([organizationId, recoveryId, createdAt])
+  @@index([actorId, createdAt])
+}
+
+model RecoveryPullRequestPackage {
+  id                    String      @id @default(uuid())
+  recoveryId            String
+  version               Int
+  patchId               String
+  title                 String
+  body                  String
+  headBranch            String
+  baseBranch            String
+  rootCauseSummary      String
+  changedFiles          Json
+  riskSummary           String
+  verificationSummary   String
+  knownLimitations      Json
+  rollbackInstructions  String
+  packageHash           String      @unique
+  recovery              RecoveryRun @relation(fields: [recoveryId], references: [id], onDelete: Cascade)
+  patch                 RecoveryPatchVersion @relation(fields: [patchId], references: [id], onDelete: Restrict)
+  createdAt             DateTime    @default(now())
+
+  @@unique([recoveryId, version])
+  @@index([recoveryId, createdAt(sort: Desc)])
+}
+
+model RecoveryCleanupRecord {
+  id             String      @id @default(uuid())
+  recoveryId     String
+  attempt        Int
+  worktreeAbsent Boolean
+  branchDeleted  Boolean
+  verifiedAt     DateTime
+  errorCode      String?
+  errorMessage   String?
+  cleanupDigest  String      @unique
+  recovery       RecoveryRun @relation(fields: [recoveryId], references: [id], onDelete: Cascade)
+  createdAt      DateTime    @default(now())
+
+  @@unique([recoveryId, attempt])
+  @@index([recoveryId, verifiedAt(sort: Desc)])
 }

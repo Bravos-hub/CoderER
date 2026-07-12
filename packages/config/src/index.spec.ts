@@ -113,3 +113,45 @@ describe('production sandbox configuration', () => {
     ).toThrow(/quota-aware/i);
   });
 });
+
+describe('production recovery configuration', () => {
+  it('accepts a separate absolute controlled-recovery worktree root', () => {
+    const config = loadWorkerConfig({
+      ...productionWorkerEnvironment(),
+      REPOSITORY_WORKSPACE_ROOT: '/var/lib/codeer/repositories',
+      RECOVERY_WORKTREE_ROOT: '/var/lib/codeer/recoveries',
+      RECOVERY_LEASE_MS: '60000',
+      RECOVERY_STALE_AFTER_MS: '180000',
+    });
+    expect(config.RECOVERY_WORKTREE_ROOT).toBe('/var/lib/codeer/recoveries');
+  });
+
+  it('rejects a relative production recovery worktree root', () => {
+    expect(() =>
+      loadWorkerConfig({
+        ...productionWorkerEnvironment(),
+        RECOVERY_WORKTREE_ROOT: 'relative/recoveries',
+      }),
+    ).toThrow(/recovery worktree root must be an absolute path/i);
+  });
+
+  it('rejects recovery worktrees nested inside the repository intake root', () => {
+    expect(() =>
+      loadWorkerConfig({
+        ...productionWorkerEnvironment(),
+        REPOSITORY_WORKSPACE_ROOT: '/var/lib/codeer/repositories',
+        RECOVERY_WORKTREE_ROOT: '/var/lib/codeer/repositories/recoveries',
+      }),
+    ).toThrow(/separate root outside the repository intake workspace/i);
+  });
+
+  it('rejects a recovery stale threshold below two lease windows', () => {
+    expect(() =>
+      loadWorkerConfig({
+        ...productionWorkerEnvironment(),
+        RECOVERY_LEASE_MS: '90000',
+        RECOVERY_STALE_AFTER_MS: '120000',
+      }),
+    ).toThrow(/at least two lease windows/i);
+  });
+});

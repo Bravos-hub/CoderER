@@ -15,10 +15,12 @@ import {
   SANDBOX_EXECUTION_QUEUE,
   SANDBOX_REPRODUCTION_OUTBOX_TOPIC,
   SandboxExecutionJobSchema,
-  RECOVERY_QUEUE,
+  CONTROLLED_RECOVERY_JOB,
+  CONTROLLED_RECOVERY_OUTBOX_TOPIC,
+  CONTROLLED_RECOVERY_QUEUE,
+  ControlledRecoveryJobSchema,
   REPOSITORY_INTAKE_JOB,
   REPOSITORY_INTAKE_QUEUE,
-  RecoveryJobSchema,
   RepositoryIntakeJobSchema,
   RepositoryIntakeResultSchema,
   RepositoryIntakeStatus,
@@ -29,6 +31,7 @@ import { logger } from '@codeer/logger';
 import { RepositoryWorkspace } from '@codeer/repository';
 import { createSandboxWorker } from './sandbox-execution-worker.js';
 import { createInvestigationWorker } from './investigation-worker.js';
+import { createControlledRecoveryWorker } from './controlled-recovery-worker.js';
 
 const config = loadWorkerConfig(process.env);
 const redisUrl = new URL(config.REDIS_URL);
@@ -80,18 +83,15 @@ async function githubPrivateKey(): Promise<string | undefined> {
   return config.GITHUB_APP_PRIVATE_KEY;
 }
 
-const recoveryWorker = new Worker(
-  RECOVERY_QUEUE,
-  (job) => {
-    const payload = RecoveryJobSchema.parse(job.data);
-    logger.info(
-      { jobId: job.id, incidentId: payload.incidentId, stage: payload.stage },
-      'Processing recovery stage',
-    );
-    return Promise.resolve({ accepted: true, processedAt: new Date().toISOString() });
+const controlledRecoveryQueue = new Queue(CONTROLLED_RECOVERY_QUEUE, {
+  connection,
+  defaultJobOptions: {
+    attempts: 1,
+    removeOnComplete: { age: 86_400, count: 2_000 },
+    removeOnFail: { age: 604_800, count: 5_000 },
   },
-  { connection, concurrency: config.WORKER_CONCURRENCY },
-);
+});
+const controlledRecoveryRuntime = createControlledRecoveryWorker({ config, connection, workerId });
 
 const repositoryIntakeWorker = new Worker(
   REPOSITORY_INTAKE_QUEUE,
@@ -259,6 +259,11 @@ async function publishOutbox(): Promise<void> {
           await investigationQueue.add(INVESTIGATION_JOB, payload, {
             jobId: message.deduplicationKey,
           });
+        } else if (message.topic === CONTROLLED_RECOVERY_OUTBOX_TOPIC) {
+          const payload = ControlledRecoveryJobSchema.parse(message.payload);
+          await controlledRecoveryQueue.add(CONTROLLED_RECOVERY_JOB, payload, {
+            jobId: message.deduplicationKey,
+          });
         } else {
           throw new Error(`Unsupported outbox topic: ${message.topic}`);
         }
@@ -295,15 +300,21 @@ const investigationReconcileTimer = setInterval(
   () => void investigationRuntime.reconcile(),
   config.AI_INVESTIGATION_RECONCILE_INTERVAL_MS,
 );
+const controlledRecoveryReconcileTimer = setInterval(
+  () => void controlledRecoveryRuntime.reconcile(),
+  config.RECOVERY_RECONCILE_INTERVAL_MS,
+);
 outboxTimer.unref();
 sandboxReconcileTimer.unref();
 investigationReconcileTimer.unref();
+controlledRecoveryReconcileTimer.unref();
 void publishOutbox();
 void sandboxRuntime.reconcile();
 void investigationRuntime.reconcile();
+void controlledRecoveryRuntime.reconcile();
 
 for (const worker of [
-  recoveryWorker,
+  controlledRecoveryRuntime.worker,
   repositoryIntakeWorker,
   incidentTriageWorker,
   sandboxRuntime.worker,
@@ -322,8 +333,9 @@ async function shutdown(signal: string): Promise<void> {
   clearInterval(outboxTimer);
   clearInterval(sandboxReconcileTimer);
   clearInterval(investigationReconcileTimer);
+  clearInterval(controlledRecoveryReconcileTimer);
   await Promise.all([
-    recoveryWorker.close(),
+    controlledRecoveryRuntime.close(),
     repositoryIntakeWorker.close(),
     incidentTriageWorker.close(),
     sandboxRuntime.close(),
@@ -331,6 +343,7 @@ async function shutdown(signal: string): Promise<void> {
     incidentTriageQueue.close(),
     sandboxExecutionQueue.close(),
     investigationQueue.close(),
+    controlledRecoveryQueue.close(),
   ]);
   await closeDatabase();
   process.exit(0);
@@ -341,7 +354,7 @@ process.on('SIGINT', () => void shutdown('SIGINT'));
 logger.info(
   {
     workerId,
-    recoveryConcurrency: config.WORKER_CONCURRENCY,
+    recoveryConcurrency: config.RECOVERY_CONCURRENCY,
     repositoryIntakeConcurrency: config.REPOSITORY_INTAKE_CONCURRENCY,
     incidentTriageConcurrency: config.INCIDENT_TRIAGE_CONCURRENCY,
     sandboxExecutionConcurrency: config.SANDBOX_EXECUTION_CONCURRENCY,
