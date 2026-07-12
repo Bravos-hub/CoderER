@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "allowJs": false,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "forceConsistentCasingInFileNames": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "@codeer/contracts": ["packages/contracts/src/index.ts"],
+      "@codeer/config": ["packages/config/src/index.ts"],
+      "@codeer/logger": ["packages/logger/src/index.ts"],
+      "@codeer/database": ["packages/database/src/index.ts"],
+      "@codeer/github": ["packages/github/src/index.ts"],
+      "@codeer/repository": ["packages/repository/src/index.ts"]
+    }
+  }
+}

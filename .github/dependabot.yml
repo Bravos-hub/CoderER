@@ -1,0 +1,35 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Africa/Kampala
+    open-pull-requests-limit: 10
+    versioning-strategy: increase
+    groups:
+      production-dependencies:
+        dependency-type: production
+      development-dependencies:
+        dependency-type: development
+    labels: [dependencies, security]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:30'
+      timezone: Africa/Kampala
+    labels: [dependencies, security, ci]
+
+  - package-ecosystem: docker
+    directory: /infra/docker
+    schedule:
+      interval: weekly
+      day: monday
+      time: '07:00'
+      timezone: Africa/Kampala
+    labels: [dependencies, security, docker]

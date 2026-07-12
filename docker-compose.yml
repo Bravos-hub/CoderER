@@ -1,0 +1,140 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: codeer
+      POSTGRES_USER: codeer
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-development-only}
+    ports:
+      - '127.0.0.1:5432:5432'
+    volumes:
+      - codeer-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U codeer -d codeer']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [backend]
+    restart: unless-stopped
+
+  redis:
+    image: redis:8-alpine
+    command:
+      - sh
+      - -c
+      - |
+        if [ -n "$${REDIS_PASSWORD}" ]; then
+          exec redis-server --appendonly yes --requirepass "$${REDIS_PASSWORD}"
+        else
+          exec redis-server --appendonly yes
+        fi
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    ports:
+      - '127.0.0.1:6379:6379'
+    volumes:
+      - codeer-redis:/data
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'if [ -n "$${REDIS_PASSWORD}" ]; then redis-cli -a "$${REDIS_PASSWORD}" ping; else redis-cli ping; fi',
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [backend]
+    restart: unless-stopped
+
+  api:
+    profiles: ['app']
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.api
+    environment:
+      NODE_ENV: production
+      API_PORT: 4100
+      API_AUTH_MODE: api-key
+      CODEER_API_KEY: ${CODEER_API_KEY:-}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      REDIS_URL: ${REDIS_URL_DOCKER:-redis://redis:6379}
+      DATABASE_URL: postgresql://codeer:${POSTGRES_PASSWORD:-development-only}@postgres:5432/codeer?schema=public
+    ports:
+      - '127.0.0.1:4100:4100'
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    networks: [frontend, backend]
+    restart: unless-stopped
+
+  worker:
+    profiles: ['app']
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.worker
+    environment:
+      NODE_ENV: production
+      REDIS_URL: ${REDIS_URL_DOCKER:-redis://redis:6379}
+      DATABASE_URL: postgresql://codeer:${POSTGRES_PASSWORD:-development-only}@postgres:5432/codeer?schema=public
+      REPOSITORY_WORKSPACE_ROOT: /var/lib/codeer/workspaces
+      REPOSITORY_CLONE_DEPTH: ${REPOSITORY_CLONE_DEPTH:-1}
+      MAX_REPOSITORY_FILES: ${MAX_REPOSITORY_FILES:-100000}
+      MAX_REPOSITORY_BYTES: ${MAX_REPOSITORY_BYTES:-2147483648}
+      MAX_GITHUB_BRANCHES: ${MAX_GITHUB_BRANCHES:-500}
+      GITHUB_APP_ID: ${GITHUB_APP_ID:-}
+      GITHUB_APP_PRIVATE_KEY: ${GITHUB_APP_PRIVATE_KEY:-}
+      GITHUB_APP_PRIVATE_KEY_FILE: ${GITHUB_APP_PRIVATE_KEY_FILE:-}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+    volumes:
+      - codeer-workspaces:/var/lib/codeer/workspaces
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    networks: [backend, egress]
+    restart: unless-stopped
+
+  web:
+    profiles: ['app']
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.web
+    environment:
+      NODE_ENV: production
+      CODEER_API_URL_INTERNAL: http://api:4100/api/v1
+      CODEER_INTERNAL_API_KEY: ${CODEER_API_KEY:-}
+    ports:
+      - '127.0.0.1:3000:3000'
+    depends_on:
+      - api
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    networks: [frontend]
+    restart: unless-stopped
+
+networks:
+  frontend:
+  backend:
+    internal: true
+  egress:
+
+volumes:
+  codeer-postgres:
+  codeer-redis:
+  codeer-workspaces:

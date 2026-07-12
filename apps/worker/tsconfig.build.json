@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "dist",
+    "rootDir": "src",
+    "sourceMap": true,
+    "paths": {
+      "@codeer/contracts": ["../../packages/contracts/dist/index.d.ts"],
+      "@codeer/config": ["../../packages/config/dist/index.d.ts"],
+      "@codeer/logger": ["../../packages/logger/dist/index.d.ts"],
+      "@codeer/database": ["../../packages/database/dist/index.d.ts"],
+      "@codeer/github": ["../../packages/github/dist/index.d.ts"],
+      "@codeer/repository": ["../../packages/repository/dist/index.d.ts"]
+    }
+  }
+}
