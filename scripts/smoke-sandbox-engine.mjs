@@ -37,8 +37,7 @@ const input = StartReproductionSchema.parse({
     },
   ],
   failureSignature: {
-    expectedText:
-      'authorization=[REDACTED]\nCODEER_FIXTURE_FAILURE: deterministic build contract mismatch',
+    expectedText: 'CODEER_FIXTURE_FAILURE: deterministic build contract mismatch',
     minimumSimilarity: 0.9,
     requireNonZeroExit: true,
   },
@@ -131,21 +130,9 @@ try {
   );
 
   if (result.status !== SandboxExecutionStatus.COMPLETED) {
-    console.error('Sandbox result:', JSON.stringify(result, null, 2));
-    console.error(
-      'Logs:',
-      logs
-        .slice(0, 20)
-        .map((l) => l.content)
-        .join('\n'),
-    );
-    console.error('Commands:', JSON.stringify(commands, null, 2));
     throw new Error(`Sandbox smoke ended in ${result.status}`);
   }
   if (result.result !== SandboxResult.REPRODUCED) {
-    console.error('Sandbox result:', JSON.stringify(result, null, 2));
-    console.error('Logs:', logs.map((l) => `[${l.stream}] ${l.content}`).join('\n'));
-    console.error('Commands:', JSON.stringify(commands, null, 2));
     throw new Error(`Expected REPRODUCED, received ${result.result}`);
   }
   if (!result.comparison?.matched || result.confidence < 0.9) {

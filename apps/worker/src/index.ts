@@ -6,6 +6,10 @@ import {
   INCIDENT_TRIAGE_JOB,
   INCIDENT_TRIAGE_OUTBOX_TOPIC,
   INCIDENT_TRIAGE_QUEUE,
+  INVESTIGATION_JOB,
+  INVESTIGATION_OUTBOX_TOPIC,
+  INVESTIGATION_QUEUE,
+  InvestigationJobSchema,
   IncidentTriageJobSchema,
   SANDBOX_EXECUTION_JOB,
   SANDBOX_EXECUTION_QUEUE,
@@ -24,6 +28,7 @@ import { parseGitHubRepositoryUrl, readGitHubRepository } from '@codeer/github';
 import { logger } from '@codeer/logger';
 import { RepositoryWorkspace } from '@codeer/repository';
 import { createSandboxWorker } from './sandbox-execution-worker.js';
+import { createInvestigationWorker } from './investigation-worker.js';
 
 const config = loadWorkerConfig(process.env);
 const redisUrl = new URL(config.REDIS_URL);
@@ -58,6 +63,15 @@ const sandboxExecutionQueue = new Queue(SANDBOX_EXECUTION_QUEUE, {
   },
 });
 const sandboxRuntime = createSandboxWorker(config, connection, workerId);
+const investigationQueue = new Queue(INVESTIGATION_QUEUE, {
+  connection,
+  defaultJobOptions: {
+    attempts: 1,
+    removeOnComplete: { age: 86_400, count: 2_000 },
+    removeOnFail: { age: 604_800, count: 5_000 },
+  },
+});
+const investigationRuntime = createInvestigationWorker({ config, connection, workerId });
 
 async function githubPrivateKey(): Promise<string | undefined> {
   if (config.GITHUB_APP_PRIVATE_KEY_FILE) {
@@ -240,6 +254,11 @@ async function publishOutbox(): Promise<void> {
           await sandboxExecutionQueue.add(SANDBOX_EXECUTION_JOB, payload, {
             jobId: message.deduplicationKey,
           });
+        } else if (message.topic === INVESTIGATION_OUTBOX_TOPIC) {
+          const payload = InvestigationJobSchema.parse(message.payload);
+          await investigationQueue.add(INVESTIGATION_JOB, payload, {
+            jobId: message.deduplicationKey,
+          });
         } else {
           throw new Error(`Unsupported outbox topic: ${message.topic}`);
         }
@@ -272,16 +291,23 @@ const sandboxReconcileTimer = setInterval(
   () => void sandboxRuntime.reconcile(),
   config.SANDBOX_RECONCILE_INTERVAL_MS,
 );
+const investigationReconcileTimer = setInterval(
+  () => void investigationRuntime.reconcile(),
+  config.AI_INVESTIGATION_RECONCILE_INTERVAL_MS,
+);
 outboxTimer.unref();
 sandboxReconcileTimer.unref();
+investigationReconcileTimer.unref();
 void publishOutbox();
 void sandboxRuntime.reconcile();
+void investigationRuntime.reconcile();
 
 for (const worker of [
   recoveryWorker,
   repositoryIntakeWorker,
   incidentTriageWorker,
   sandboxRuntime.worker,
+  investigationRuntime.worker,
 ]) {
   worker.on('completed', (job) =>
     logger.info({ jobId: job.id, queue: worker.name }, 'Job completed'),
@@ -295,13 +321,16 @@ async function shutdown(signal: string): Promise<void> {
   logger.info({ signal }, 'Stopping CodeER workers');
   clearInterval(outboxTimer);
   clearInterval(sandboxReconcileTimer);
+  clearInterval(investigationReconcileTimer);
   await Promise.all([
     recoveryWorker.close(),
     repositoryIntakeWorker.close(),
     incidentTriageWorker.close(),
     sandboxRuntime.close(),
+    investigationRuntime.close(),
     incidentTriageQueue.close(),
     sandboxExecutionQueue.close(),
+    investigationQueue.close(),
   ]);
   await closeDatabase();
   process.exit(0);
@@ -316,6 +345,7 @@ logger.info(
     repositoryIntakeConcurrency: config.REPOSITORY_INTAKE_CONCURRENCY,
     incidentTriageConcurrency: config.INCIDENT_TRIAGE_CONCURRENCY,
     sandboxExecutionConcurrency: config.SANDBOX_EXECUTION_CONCURRENCY,
+    investigationConcurrency: config.AI_INVESTIGATION_CONCURRENCY,
     outboxPollIntervalMs: config.OUTBOX_POLL_INTERVAL_MS,
     workspaceRoot: config.REPOSITORY_WORKSPACE_ROOT,
   },

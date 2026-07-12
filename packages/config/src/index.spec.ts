@@ -6,6 +6,12 @@ const digest = 'a'.repeat(64);
 function productionApiEnvironment(): NodeJS.ProcessEnv {
   return {
     NODE_ENV: 'production',
+    OPENAI_API_KEY: 'test-openai-provider-key-abcdefghijklmnopqrstuvwxyz',
+    AI_ALLOWED_MODELS: 'gpt-5.6',
+    AI_DEFAULT_MODEL: 'gpt-5.6',
+    AI_MODEL_PRICING_JSON:
+      '{"gpt-5.6":{"inputUsdPerMillion":5,"outputUsdPerMillion":30,"cachedInputUsdPerMillion":0.5}}',
+
     API_AUTH_MODE: 'api-key',
     CODEER_API_KEY: 'api-key-with-more-than-thirty-two-characters',
     API_REQUIRE_TENANT_CONTEXT: 'true',
@@ -23,6 +29,12 @@ function productionApiEnvironment(): NodeJS.ProcessEnv {
 function productionWorkerEnvironment(): NodeJS.ProcessEnv {
   return {
     NODE_ENV: 'production',
+    OPENAI_API_KEY: 'test-openai-provider-key-abcdefghijklmnopqrstuvwxyz',
+    AI_ALLOWED_MODELS: 'gpt-5.6',
+    AI_DEFAULT_MODEL: 'gpt-5.6',
+    AI_MODEL_PRICING_JSON:
+      '{"gpt-5.6":{"inputUsdPerMillion":5,"outputUsdPerMillion":30,"cachedInputUsdPerMillion":0.5}}',
+
     DATABASE_URL: 'postgresql://codeer_worker:secure-password@database.internal:5432/codeer',
     SANDBOX_DEFAULT_IMAGE: `registry.example/codeer/node@sha256:${digest}`,
     SANDBOX_HELPER_IMAGE: `registry.example/codeer/helper@sha256:${digest}`,

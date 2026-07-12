@@ -43,6 +43,13 @@ const rolePermissions: Readonly<Record<ActorRole, readonly CodeerPermission[]>> 
     IncidentPermission.REQUEST_REPRODUCTION,
     IncidentPermission.READ_REPRODUCTION,
     IncidentPermission.CANCEL_REPRODUCTION,
+    IncidentPermission.START_INVESTIGATION,
+    IncidentPermission.READ_INVESTIGATION,
+    IncidentPermission.CANCEL_INVESTIGATION,
+    IncidentPermission.RESUME_INVESTIGATION,
+    IncidentPermission.REQUEST_PLAN_REVISION,
+    IncidentPermission.APPROVE_TREATMENT_PLAN,
+    IncidentPermission.REJECT_TREATMENT_PLAN,
     RepositoryPermission.READ,
   ],
   [ActorRole.RESPONDER]: [
@@ -57,6 +64,7 @@ const rolePermissions: Readonly<Record<ActorRole, readonly CodeerPermission[]>> 
   [ActorRole.VIEWER]: [
     IncidentPermission.READ,
     IncidentPermission.READ_REPRODUCTION,
+    IncidentPermission.READ_INVESTIGATION,
     RepositoryPermission.READ,
   ],
   [ActorRole.SERVICE]: allPermissions,

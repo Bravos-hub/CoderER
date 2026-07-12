@@ -1,43 +1,57 @@
 {
   "project": "CodeER",
-  "version": "0.3.0-sprint4",
+  "version": "0.4.0-sprint5",
   "deliveryDate": "2026-07-12",
   "scope": [
     "Sprint 1 secure workspace foundation",
     "Sprint 2 controlled repository intake",
     "Sprint 3 enterprise incident engine",
-    "Sprint 4 hardened sandbox and deterministic failure reproduction"
+    "Sprint 4 hardened sandbox and deterministic failure reproduction",
+    "Sprint 5 enterprise Codex investigation orchestration and evidence-grounded diagnosis"
   ],
   "validation": {
-    "workspaceStructure": "passed (13 required paths)",
+    "workspaceStructure": "passed (13 workspaces and required enterprise paths)",
     "format": "passed",
     "lint": "passed",
-    "typecheck": "passed across 12 workspaces",
-    "unitTests": "58 passed in 9 test files",
-    "sharedPackageBuilds": "passed across 9 packages",
+    "typecheck": "passed across 13 workspaces",
+    "unitTests": "74 passed in 13 test files",
+    "deterministicEvaluation": {
+      "status": "passed",
+      "cases": 11,
+      "rootCauseAccuracy": 1,
+      "citationValidity": 1,
+      "unsupportedClaimRate": 0,
+      "planMinimality": 1,
+      "injectionResistance": 1,
+      "securityReviewRecall": 1,
+      "latencyP95Ms": 200,
+      "note": "known-output framework and guardrail evaluation; not a substitute for private live-model quality evaluation"
+    },
+    "sharedPackageBuilds": "passed across 10 shared packages",
     "apiBuild": "passed",
     "workerBuild": "passed",
     "nextProductionBuild": "passed",
-    "scriptSyntax": "passed for all repository MJS scripts and the deterministic fixture",
-    "yamlParsing": "passed for all GitHub Actions workflows and docker-compose.yml",
+    "scriptSyntax": "passed for repository MJS scripts",
+    "yamlParsing": "passed for docker-compose.yml and all GitHub Actions workflows",
     "secretPatternScan": "passed",
     "dependencyAudit": {
       "critical": 0,
       "high": 0,
       "moderate": 5,
       "low": 0,
-      "policy": "release gate fails on high or critical severity; current moderate findings are upstream transitive dependencies and remain tracked"
+      "policy": "release gate fails on high or critical severity; moderate upstream transitive findings remain tracked"
     },
     "sbom": "CycloneDX regenerated",
-    "prismaSchemaValidation": "passed via npm run db:generate and raw SQL migrations applied with npm run db:migrate:all",
-    "databaseIntegration": "incident, role-boundary, sandbox-persistence and sandbox-docker smoke suites passed locally against PostgreSQL 17 and Redis 8",
-    "dockerSecurityProfile": "deterministic sandbox smoke passed locally against Docker Desktop 4.80.0; orphan check, non-root worker-image check and high/critical Trivy gate are implemented in CI",
-    "containerBuilds": "Dockerfiles and workflow gates are configured; local image builds were not possible in this environment",
-    "remoteExecutionBoundary": "production requires a remote authenticated Docker endpoint, rejects local socket execution, transfers source through the Docker client protocol without host bind mounts, and records execution/helper image identities",
-    "restrictedEgressAttestation": "restricted install networking requires an egress-control label and a destination-policy digest matching the approved registry/domain policy",
-    "leaseFencing": "all execution-side database mutations require the current unexpired lease owner; duplicate active claims and stale writers are covered by the persistence smoke suite",
-    "cleanupSafety": "unit-tested for normal completion, timeout, cancellation, control-plane failure, persistence failure and OOM classification; append-only corrective cleanup proofs and stale-execution reconciliation are implemented",
-    "resourceSafety": "operator limits are ceilings, unsafe stale-resource thresholds are rejected, and source/workspace/output/artifact budgets are bounded"
+    "prismaSchemaValidation": "not executed locally because binaries.prisma.sh DNS resolution failed while Prisma attempted to download its schema engine",
+    "databaseIntegration": "Sprint 5 migration, RLS and persistence smoke suite implemented in CI; local execution requires PostgreSQL",
+    "liveProviderEvaluation": "not executed; requires a secret-managed OpenAI API key and sanitized private fixtures",
+    "providerContract": "strict Responses API JSON Schema, bounded output, timeout, usage accounting, redacted errors and response storage disabled by default",
+    "promptInjectionBoundary": "repository and incident content is isolated as untrusted evidence; tools are deterministic, read-only, agent-specific and audited",
+    "grounding": "diagnoses and plans require valid committed evidence citations and independent security/critic validation",
+    "humanGovernance": "service/system/agent decisions are rejected; production decisions require signed user sessions; distinct approver thresholds and duplicate-decision idempotency are implemented",
+    "tenantIsolation": "AI persistence uses tenant-scoped application queries and forced PostgreSQL RLS; cross-tenant smoke coverage is implemented",
+    "durability": "transactional outbox, leases, heartbeats, checkpoints, cancellation, resume and stale-run reconciliation are implemented",
+    "readOnlyScope": "Sprint 5 exposes no repository write, shell, GitHub mutation, approval or unrestricted network tools"
   },
-  "enterpriseGate": "closed pending managed remote sandbox infrastructure, mandatory access-control profiles, registry admission, enforced egress gateway, KMS-backed secrets, OIDC and SCIM, evidence object storage, regional resilience, load and container-escape testing, penetration testing and formal operational readiness review"
+  "enterpriseGate": "closed pending PostgreSQL migration/RLS execution, private live-model evaluation, workforce OIDC/SCIM, managed signing keys and secrets, regional encrypted evidence storage, provider egress controls, SIEM integration, load/chaos/red-team testing and formal operational readiness review"
 }

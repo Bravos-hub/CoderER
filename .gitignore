@@ -19,6 +19,3 @@ artifacts/
 secrets/
 *.pem
 *.key
-*.zip
-*.tsbuildinfo
-codeer-sbom.cdx.json

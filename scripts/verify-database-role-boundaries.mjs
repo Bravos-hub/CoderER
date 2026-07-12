@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { Pool } from 'pg';
 
 const adminUrl = process.env.DATABASE_ADMIN_URL;

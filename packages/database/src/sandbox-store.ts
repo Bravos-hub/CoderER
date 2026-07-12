@@ -757,7 +757,7 @@ export class SandboxStore {
             command.workingDirectory,
             canonicalJson(command.environment),
             command.networkMode,
-            command.timeoutMs ?? 300_000,
+            command.timeoutMs,
             command.expectedExitCodes,
           ],
         );
@@ -1119,6 +1119,10 @@ export class SandboxStore {
     if (!row) throw new TenantResourceNotFoundError('Sandbox execution');
     return {
       ...row,
+      policy: {
+        ...row.policy,
+        evaluatedAt: new Date(row.policy.evaluatedAt).toISOString(),
+      },
       cancellationRequestedAt: iso(row.cancellationRequestedAt),
     };
   }
@@ -1135,7 +1139,7 @@ export class SandboxStore {
           'allowed',p."allowed",'policyVersion',p."policyVersion",'decisionId',p."decisionId",
           'reasons',p."reasons",'normalizedCommands',p."normalizedCommands",'resourceLimits',p."resourceLimits",
           'networkPolicy',p."networkPolicy",'image',p."image",'imageDigestRequired',p."imageDigestRequired",
-          'overrideRequired',p."overrideRequired",'evaluatedAt',to_char(p."evaluatedAt" AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+          'overrideRequired',p."overrideRequired",'evaluatedAt',p."evaluatedAt"
         ) AS "policyDecision"
        FROM "FailureReproduction" r
        JOIN "SandboxExecution" e ON e."id"=r."executionId"
@@ -1200,7 +1204,10 @@ export class SandboxStore {
       executionId: row.executionId,
       status: row.status as SandboxExecutionStatus,
       result: row.result as SandboxResult | null,
-      policyDecision: row.policyDecision,
+      policyDecision: {
+        ...row.policyDecision,
+        evaluatedAt: new Date(row.policyDecision.evaluatedAt).toISOString(),
+      },
       originalFailureSignature:
         row.originalFailureSignature as Reproduction['originalFailureSignature'],
       observedFailureSignature:

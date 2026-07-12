@@ -25,7 +25,8 @@
     "rxjs": "7.8.2",
     "@codeer/database": "0.1.0",
     "@codeer/security": "0.1.0",
-    "@codeer/sandbox": "0.1.0"
+    "@codeer/sandbox": "0.1.0",
+    "@codeer/ai": "0.1.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.5"

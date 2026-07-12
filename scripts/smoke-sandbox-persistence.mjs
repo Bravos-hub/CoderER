@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { randomUUID } from 'node:crypto';
 import {
   ActorRole,
@@ -217,7 +218,8 @@ try {
   await workerSandboxStore.heartbeat(organizationId, created.executionId, 'ci-worker', 60_000);
 
   const commandId = randomUUID();
-  const command = input.reproductionCommands[0];
+  const command = envelope.policy.normalizedCommands[0];
+  if (!command) throw new Error('Sandbox policy did not retain the reproduction command.');
   await workerSandboxStore.commandStarted(
     organizationId,
     created.executionId,
@@ -358,19 +360,16 @@ try {
   if (artifacts.length !== 1 || artifacts[0].digest !== artifact.digest) {
     throw new Error('Artifact manifest persistence failed.');
   }
-  let cleanupProofCount = 0;
-  await withTransaction(
-    async (client) => {
-      const result = await client.query(
+  const cleanupProofs = await withTransaction(
+    (client) =>
+      client.query(
         `SELECT COUNT(*)::int AS count FROM "SandboxCleanupRecord" WHERE "executionId"=$1`,
         [created.executionId],
-      );
-      cleanupProofCount = result.rows[0]?.count ?? 0;
-    },
-    { tenantOrganizationId: organizationId },
+      ),
+    { workerBypassRls: true },
     workerPool,
   );
-  if (cleanupProofCount !== 2) {
+  if (cleanupProofs.rows[0]?.count !== 2) {
     throw new Error('Immutable cleanup correction history was not retained.');
   }
 
@@ -387,7 +386,7 @@ try {
       logs: logs.items.length,
       artifacts: artifacts.length,
       cleanupVerified: detail.cleanup.verifiedAbsent,
-      cleanupProofs: cleanupProofCount,
+      cleanupProofs: cleanupProofs.rows[0].count,
       result: detail.result,
     }),
   );

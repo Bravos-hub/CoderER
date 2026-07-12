@@ -100,6 +100,21 @@ enum IncidentEventType {
   REPRODUCTION_CANCELLED
   SANDBOX_CLEANUP_COMPLETED
   SANDBOX_CLEANUP_FAILED
+  INVESTIGATION_REQUESTED
+  INVESTIGATION_STARTED
+  INVESTIGATION_CHECKPOINTED
+  INVESTIGATION_INSUFFICIENT_EVIDENCE
+  INVESTIGATION_COMPLETED
+  INVESTIGATION_CANCELLED
+  INVESTIGATION_FAILED
+  DIAGNOSIS_PUBLISHED
+  TREATMENT_PLAN_PROPOSED
+  TREATMENT_PLAN_APPROVAL_RECORDED
+  TREATMENT_PLAN_REVISION_REQUESTED
+  TREATMENT_PLAN_APPROVED
+  TREATMENT_PLAN_REJECTED
+  AI_GUARDRAIL_BLOCKED
+  AI_BUDGET_EXCEEDED
 }
 
 enum EvidenceKind {
@@ -118,6 +133,11 @@ enum EvidenceKind {
   SANDBOX_ARTIFACT
   FAILURE_REPRODUCTION
   SANDBOX_CLEANUP
+  INVESTIGATION_CONTEXT
+  ROOT_CAUSE_HYPOTHESIS
+  DIAGNOSIS
+  TREATMENT_PLAN
+  AI_GUARDRAIL
 }
 
 enum EvidenceSource {
@@ -209,6 +229,108 @@ enum SandboxArtifactRetention {
   LEGAL_HOLD
 }
 
+
+enum AiProvider {
+  OPENAI
+}
+
+enum InvestigationStatus {
+  REQUESTED
+  POLICY_CHECK
+  CONTEXT_BUILDING
+  TRIAGE
+  MAPPING
+  HYPOTHESIS
+  VALIDATION
+  SECURITY_REVIEW
+  PLAN_COMPOSITION
+  CRITIC_REVIEW
+  AWAITING_APPROVAL
+  APPROVED
+  REJECTED
+  REVISION_REQUESTED
+  POLICY_BLOCKED
+  INSUFFICIENT_EVIDENCE
+  CANCELLED
+  TIMED_OUT
+  MODEL_FAILED
+  TOOL_FAILED
+  BUDGET_EXCEEDED
+  SECURITY_REJECTED
+}
+
+enum InvestigationAgentKind {
+  TRIAGE
+  REPOSITORY_MAPPER
+  ROOT_CAUSE_INVESTIGATOR
+  CONTRACT_ANALYST
+  SECURITY_REVIEWER
+  PLAN_COMPOSER
+  INDEPENDENT_CRITIC
+}
+
+enum AgentRunStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+  BLOCKED
+}
+
+enum ModelInvocationStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+  BUDGET_EXCEEDED
+}
+
+enum ToolCallStatus {
+  REQUESTED
+  AUTHORIZED
+  COMPLETED
+  DENIED
+  FAILED
+}
+
+enum GuardrailOutcome {
+  ALLOW
+  BLOCK
+  REVIEW
+}
+
+enum HypothesisDisposition {
+  PRIMARY
+  ALTERNATIVE
+  REJECTED
+}
+
+enum TreatmentPlanStatus {
+  DRAFT
+  SECURITY_REVIEW
+  CRITIC_REVIEW
+  AWAITING_APPROVAL
+  APPROVED
+  REJECTED
+  REVISION_REQUESTED
+  SUPERSEDED
+}
+
+enum PlanApprovalDecision {
+  APPROVE
+  REJECT
+  REQUEST_REVISION
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
 model Organization {
   id             String                     @id @default(uuid())
   slug           String                     @unique
@@ -224,6 +346,16 @@ model Organization {
   sandboxExecutions SandboxExecution[]
   reproductions  FailureReproduction[]
   sandboxArtifacts SandboxArtifact[]
+  aiPolicies OrganizationAiPolicy[]
+  investigations InvestigationRun[]
+  contextPackages InvestigationContextPackage[]
+  modelInvocations ModelInvocation[]
+  toolCalls InvestigationToolCall[]
+  diagnoses Diagnosis[]
+  treatmentPlans TreatmentPlan[]
+  planApprovals PlanApproval[]
+  aiUsage AiUsageLedger[]
+  evaluationRuns EvaluationRun[]
   createdAt      DateTime                   @default(now())
   updatedAt      DateTime                   @updatedAt
 }
@@ -329,6 +461,9 @@ model Incident {
   sandboxExecutions   SandboxExecution[]
   reproductions       FailureReproduction[]
   sandboxArtifacts    SandboxArtifact[]
+  investigations      InvestigationRun[]
+  diagnoses           Diagnosis[]
+  treatmentPlans      TreatmentPlan[]
   reportedAt          DateTime
   acknowledgedAt      DateTime?
   resolvedAt          DateTime?
@@ -599,6 +734,7 @@ model FailureReproduction {
   organization             Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   incident                 Incident           @relation(fields: [incidentId], references: [id], onDelete: Cascade)
   execution                SandboxExecution   @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  investigations           InvestigationRun[]
   createdAt                DateTime           @default(now())
   updatedAt                DateTime           @updatedAt
 
@@ -697,4 +833,471 @@ model SandboxCleanupRecord {
 
   @@unique([executionId, digest])
   @@index([executionId, completedAt(sort: Desc)])
+}
+
+
+model OrganizationAiPolicy {
+  id                              String      @id @default(uuid())
+  organizationId                  String
+  provider                        AiProvider
+  allowedModels                   String[]
+  modelByAgent                    Json
+  allowedTools                    String[]
+  maximumConcurrentInvestigations Int
+  maximumModelInvocations         Int
+  maximumToolCalls                Int
+  maximumInputTokens              Int
+  maximumOutputTokens             Int
+  maximumCostUsd                  Decimal     @db.Decimal(12, 4)
+  timeoutMs                       Int
+  retentionDays                   Int
+  requireHumanApproval            Boolean     @default(true)
+  requireIndependentCritic        Boolean     @default(true)
+  requireSecurityReview           Boolean     @default(true)
+  storeProviderResponses          Boolean     @default(false)
+  policyVersion                   String
+  active                          Boolean     @default(true)
+  contentHash                     String
+  createdBy                       String
+  organization                    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  investigationRuns               InvestigationRun[]
+  createdAt                       DateTime     @default(now())
+  supersededAt                    DateTime?
+
+  @@unique([organizationId, policyVersion])
+  @@index([organizationId, active, createdAt(sort: Desc)])
+}
+
+model PromptTemplateVersion {
+  id              String     @id @default(uuid())
+  name            String
+  version         String
+  agentKind       InvestigationAgentKind
+  systemTemplate  String
+  userTemplate    String
+  outputSchema    Json
+  contentHash     String
+  active          Boolean    @default(true)
+  createdBy       String
+  agentRuns       AgentRun[]
+  createdAt       DateTime   @default(now())
+  supersededAt    DateTime?
+
+  @@unique([name, version, agentKind])
+  @@index([agentKind, active, createdAt(sort: Desc)])
+}
+
+model InvestigationRun {
+  id                      String              @id @default(uuid())
+  organizationId          String
+  incidentId              String
+  reproductionId          String
+  aiPolicyId              String
+  status                  InvestigationStatus @default(REQUESTED)
+  promptTemplateVersion   String
+  requestedBy              String
+  input                    Json
+  contextHash             String?
+  currentCheckpoint       Int                 @default(0)
+  leaseOwner              String?
+  leaseExpiresAt          DateTime?
+  heartbeatAt             DateTime?
+  cancellationRequestedAt DateTime?
+  startedAt               DateTime?
+  completedAt             DateTime?
+  errorCode               String?
+  errorMessage            String?
+  totalInputTokens        Int                 @default(0)
+  totalOutputTokens       Int                 @default(0)
+  estimatedCostUsd        Decimal             @default(0) @db.Decimal(12, 4)
+  organization            Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  incident                Incident            @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  reproduction            FailureReproduction @relation(fields: [reproductionId], references: [id], onDelete: Restrict)
+  aiPolicy                OrganizationAiPolicy @relation(fields: [aiPolicyId], references: [id], onDelete: Restrict)
+  checkpoints             InvestigationCheckpoint[]
+  events                  InvestigationEvent[]
+  agentRuns               AgentRun[]
+  modelInvocations        ModelInvocation[]
+  toolCalls               InvestigationToolCall[]
+  contextPackages         InvestigationContextPackage[]
+  guardrailDecisions      GuardrailDecision[]
+  hypotheses              RootCauseHypothesis[]
+  diagnosis               Diagnosis?
+  treatmentPlans          TreatmentPlan[]
+  usageLedger             AiUsageLedger[]
+  createdAt               DateTime             @default(now())
+  updatedAt               DateTime             @updatedAt
+
+  @@index([organizationId, incidentId, createdAt(sort: Desc)])
+  @@index([status, leaseExpiresAt])
+  @@index([reproductionId, createdAt(sort: Desc)])
+}
+
+model InvestigationCheckpoint {
+  id              String              @id @default(uuid())
+  investigationId String
+  sequence        Int
+  stage           InvestigationStatus
+  state           Json
+  stateHash       String
+  leaseOwner      String
+  occurredAt      DateTime
+  investigation   InvestigationRun    @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+  createdAt       DateTime            @default(now())
+
+  @@unique([investigationId, sequence])
+  @@index([investigationId, stage, sequence])
+}
+
+model InvestigationEvent {
+  id              String           @id @default(uuid())
+  investigationId String
+  sequence        Int
+  type            String
+  payload         Json
+  previousHash    String?
+  eventHash       String           @unique
+  actorType       ActorType
+  actorId         String?
+  requestId       String?
+  correlationId   String?
+  occurredAt      DateTime
+  investigation   InvestigationRun @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+  createdAt       DateTime         @default(now())
+
+  @@unique([investigationId, sequence])
+  @@index([investigationId, occurredAt])
+  @@index([correlationId])
+}
+
+model AgentRun {
+  id                       String                 @id @default(uuid())
+  investigationId          String
+  agentKind                InvestigationAgentKind
+  status                   AgentRunStatus         @default(PENDING)
+  model                     String
+  promptTemplateVersionId  String
+  inputHash                String
+  outputHash               String?
+  conciseDecisionSummary   String?
+  startedAt                DateTime?
+  completedAt              DateTime?
+  errorCode                String?
+  errorMessage             String?
+  investigation            InvestigationRun      @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+  promptTemplateVersion    PromptTemplateVersion @relation(fields: [promptTemplateVersionId], references: [id], onDelete: Restrict)
+  modelInvocations         ModelInvocation[]
+  toolCalls                InvestigationToolCall[]
+  guardrailDecisions       GuardrailDecision[]
+  createdAt                DateTime               @default(now())
+  updatedAt                DateTime               @updatedAt
+
+  @@index([investigationId, agentKind, createdAt])
+  @@index([status, createdAt])
+}
+
+model ModelInvocation {
+  id                 String                  @id @default(uuid())
+  organizationId     String
+  investigationId    String
+  agentRunId          String
+  provider            AiProvider
+  model               String
+  status              ModelInvocationStatus  @default(PENDING)
+  providerRequestId   String?
+  providerResponseId  String?
+  instructionsHash   String
+  inputHash           String
+  outputHash          String?
+  schemaName          String
+  schemaVersion       String
+  inputTokens         Int                    @default(0)
+  cachedInputTokens   Int                    @default(0)
+  outputTokens        Int                    @default(0)
+  reasoningTokens     Int                    @default(0)
+  estimatedCostUsd    Decimal                @default(0) @db.Decimal(12, 6)
+  durationMs          Int?
+  errorCode           String?
+  errorMessage        String?
+  startedAt           DateTime?
+  completedAt         DateTime?
+  organization       Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  investigation      InvestigationRun        @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+  agentRun           AgentRun                @relation(fields: [agentRunId], references: [id], onDelete: Cascade)
+  usageLedger        AiUsageLedger[]
+  createdAt          DateTime                @default(now())
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@index([investigationId, status, createdAt])
+  @@index([providerResponseId])
+}
+
+model InvestigationToolCall {
+  id              String           @id @default(uuid())
+  organizationId  String
+  investigationId String
+  agentRunId      String
+  toolName        String
+  status          ToolCallStatus   @default(REQUESTED)
+  inputHash       String
+  outputHash      String?
+  inputSummary    Json
+  outputSummary   Json?
+  deniedReason    String?
+  durationMs      Int?
+  leaseOwner      String
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  investigation   InvestigationRun @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+  agentRun        AgentRun         @relation(fields: [agentRunId], references: [id], onDelete: Cascade)
+  createdAt       DateTime         @default(now())
+  completedAt     DateTime?
+
+  @@index([organizationId, investigationId, createdAt])
+  @@index([agentRunId, status, createdAt])
+}
+
+model InvestigationContextPackage {
+  id              String           @id @default(uuid())
+  organizationId  String
+  investigationId String
+  schemaVersion   String
+  contentHash     String
+  totalBytes      Int
+  truncated       Boolean
+  redactionCount  Int
+  suspiciousInstructionCount Int
+  retentionUntil  DateTime
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  investigation   InvestigationRun @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+  items           InvestigationContextItem[]
+  createdAt       DateTime         @default(now())
+
+  @@unique([investigationId, contentHash])
+  @@index([organizationId, createdAt(sort: Desc)])
+}
+
+model InvestigationContextItem {
+  id              String                      @id @default(uuid())
+  contextPackageId String
+  sourceType      String
+  sourceId        String
+  label           String
+  digest          String
+  path            String?
+  lineStart       Int?
+  lineEnd         Int?
+  sensitivity     String?
+  byteSize        Int
+  redactionCount  Int                         @default(0)
+  suspiciousInstructionCount Int              @default(0)
+  content         Json
+  contextPackage  InvestigationContextPackage @relation(fields: [contextPackageId], references: [id], onDelete: Cascade)
+  createdAt       DateTime                    @default(now())
+
+  @@index([contextPackageId, sourceType, sourceId])
+  @@index([digest])
+}
+
+model GuardrailDecision {
+  id              String           @id @default(uuid())
+  investigationId String
+  agentRunId      String?
+  category        String
+  outcome         GuardrailOutcome
+  reason          String
+  policyVersion   String
+  inputHash       String
+  details         Json
+  decisionHash    String
+  investigation   InvestigationRun @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+  agentRun        AgentRun?        @relation(fields: [agentRunId], references: [id], onDelete: SetNull)
+  createdAt       DateTime         @default(now())
+
+  @@index([investigationId, outcome, createdAt])
+  @@index([category, createdAt])
+}
+
+model RootCauseHypothesis {
+  id                    String                 @id
+  investigationId       String
+  disposition           HypothesisDisposition
+  title                 String
+  mechanism             String
+  confidence            Float
+  supportingEvidence    Json
+  contradictingEvidence Json
+  missingEvidence       Json
+  assumptions           Json
+  contentHash           String
+  investigation         InvestigationRun       @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+  createdAt             DateTime               @default(now())
+
+  @@index([investigationId, disposition, confidence(sort: Desc)])
+}
+
+model Diagnosis {
+  id               String           @id
+  organizationId   String
+  incidentId       String
+  investigationId  String           @unique
+  summary           String
+  failureMechanism String
+  blastRadius       String
+  securityImpact    String
+  confidence        Float
+  confidenceBand    String
+  unknowns          Json
+  citations         Json
+  schemaVersion     String
+  contentHash       String           @unique
+  organization      Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  incident          Incident         @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  investigation     InvestigationRun @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+  evidenceLinks     DiagnosisEvidenceLink[]
+  treatmentPlans    TreatmentPlan[]
+  createdAt         DateTime         @default(now())
+
+  @@index([organizationId, incidentId, createdAt(sort: Desc)])
+}
+
+model DiagnosisEvidenceLink {
+  id          String    @id @default(uuid())
+  diagnosisId String
+  sourceType  String
+  sourceId    String
+  digest      String
+  path        String?
+  lineStart   Int?
+  lineEnd     Int?
+  label       String
+  diagnosis   Diagnosis @relation(fields: [diagnosisId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+
+  @@unique([diagnosisId, sourceType, sourceId, digest, path, lineStart, lineEnd])
+  @@index([sourceType, sourceId])
+}
+
+model TreatmentPlan {
+  id                  String              @id
+  organizationId      String
+  incidentId          String
+  investigationId     String
+  diagnosisId         String
+  version             Int
+  status              TreatmentPlanStatus @default(DRAFT)
+  goal                String
+  risk                RiskLevel
+  verificationMatrix  Json
+  rollbackStrategy    String
+  compatibilityImpact String
+  migrationImpact     String
+  knownLimitations    Json
+  requiredApprovals   Int                 @default(1)
+  schemaVersion       String
+  contentHash         String              @unique
+  supersedesPlanId    String?
+  organization        Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  incident            Incident            @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  investigation       InvestigationRun    @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+  diagnosis           Diagnosis           @relation(fields: [diagnosisId], references: [id], onDelete: Restrict)
+  supersedes          TreatmentPlan?      @relation("PlanVersions", fields: [supersedesPlanId], references: [id], onDelete: SetNull)
+  revisions           TreatmentPlan[]     @relation("PlanVersions")
+  steps               TreatmentPlanStep[]
+  approvals           PlanApproval[]
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  @@unique([investigationId, version])
+  @@index([organizationId, incidentId, status, createdAt(sort: Desc)])
+}
+
+model TreatmentPlanStep {
+  id                     String        @id @default(uuid())
+  planId                 String
+  sequence               Int
+  title                  String
+  objective              String
+  affectedComponents     String[]
+  scopeRestrictions      Json
+  risk                   RiskLevel
+  securityConsiderations Json
+  verificationCommands   Json
+  expectedResults        Json
+  rollbackProcedure      String
+  citations              Json
+  plan                   TreatmentPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  createdAt              DateTime      @default(now())
+
+  @@unique([planId, sequence])
+  @@index([planId, risk, sequence])
+}
+
+model PlanApproval {
+  id              String               @id @default(uuid())
+  organizationId  String
+  planId          String
+  decision        PlanApprovalDecision
+  comment         String
+  actorId         String
+  actorType       ActorType
+  actorRoles      String[]
+  planVersion     Int
+  requestId       String?
+  correlationId   String?
+  decisionHash    String
+  organization    Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan            TreatmentPlan        @relation(fields: [planId], references: [id], onDelete: Cascade)
+  createdAt       DateTime             @default(now())
+
+  @@unique([planId, planVersion, actorId, decision])
+  @@index([organizationId, planId, createdAt])
+  @@index([actorId, createdAt])
+}
+
+model AiUsageLedger {
+  id                 String           @id @default(uuid())
+  organizationId     String
+  investigationId    String
+  modelInvocationId  String?
+  provider           AiProvider
+  model              String
+  inputTokens        Int
+  cachedInputTokens  Int
+  outputTokens       Int
+  reasoningTokens    Int
+  estimatedCostUsd   Decimal          @db.Decimal(12, 6)
+  occurredAt         DateTime
+  organization       Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  investigation      InvestigationRun @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+  modelInvocation    ModelInvocation? @relation(fields: [modelInvocationId], references: [id], onDelete: SetNull)
+  createdAt          DateTime         @default(now())
+
+  @@index([organizationId, occurredAt(sort: Desc)])
+  @@index([investigationId, occurredAt])
+}
+
+model EvaluationRun {
+  id                       String       @id @default(uuid())
+  organizationId           String
+  suiteVersion             String
+  datasetVersion           String
+  status                   String
+  modelConfiguration       Json
+  rootCauseAccuracy        Float?
+  citationValidity         Float?
+  unsupportedClaimRate     Float?
+  planMinimality           Float?
+  securityReviewRecall     Float?
+  injectionResistance      Float?
+  latencyP95Ms             Int?
+  estimatedCostUsd         Decimal?     @db.Decimal(12, 6)
+  results                  Json?
+  contentHash              String?
+  organization             Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  startedAt                DateTime?
+  completedAt              DateTime?
+  createdAt                DateTime     @default(now())
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@index([suiteVersion, datasetVersion, createdAt(sort: Desc)])
 }

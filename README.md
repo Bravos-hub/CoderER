@@ -195,6 +195,39 @@ Untrusted repository commands do not execute on the API or worker host. The work
 
 The API key and HMAC identity bridge are transitional controls. Enterprise deployments will replace the human identity path with OIDC, short-lived service credentials and policy-driven authorization while preserving the same application permission model.
 
+## Enterprise AI investigation plane
+
+Sprint 5 adds a durable, read-only intelligence layer that converts verified reproductions into citation-valid diagnoses and versioned treatment plans. Repository content is treated as hostile evidence, tools are tenant-scoped and read-only, model output is schema and citation validated, and provider usage is governed by organization model, token, cost, concurrency and retention policy.
+
+The workflow uses specialized triage, mapping, investigation, contract, security, planning and critic agents. It persists checkpoints, model invocations, tool calls, context packages, guardrail decisions, hypotheses, diagnoses, plans, usage and approvals under forced PostgreSQL row-level security. It does not edit repository files, create commits or open pull requests.
+
+Treatment-plan decisions require a signed authenticated human session. Service, system and agent actors are rejected. Plans can require multiple distinct approvers; duplicate approvals are idempotent and partial approvals remain pending.
+
+```env
+OPENAI_API_KEY=<secret-manager-reference>
+AI_ALLOWED_MODELS=gpt-5.6
+AI_DEFAULT_MODEL=gpt-5.6
+AI_MODEL_PRICING_JSON=<current-approved-provider-pricing-map>
+AI_MAX_MODEL_INVOCATIONS=20
+AI_MAX_INPUT_TOKENS=200000
+AI_MAX_OUTPUT_TOKENS=30000
+AI_MAX_COST_USD=25
+AI_STORE_PROVIDER_RESPONSES=false
+CODEER_USER_SESSION_SECRET=<separate-at-least-32-character-secret>
+```
+
+Production human sessions are issued by an identity edge or OIDC adapter as signed, expiring, HttpOnly `codeer_user_session` cookies. Development identity fallbacks are ignored in production.
+
+- [Sprint 5 Codex Orchestration Architecture](docs/architecture/SPRINT_5_CODEX_ORCHESTRATION.md)
+- [Investigations API](docs/api/INVESTIGATIONS_API.md)
+- [AI Investigation Data Model](docs/data/AI_INVESTIGATION_DATA_MODEL.md)
+- [AI Orchestration Threat Model](docs/security/AI_ORCHESTRATION_THREAT_MODEL.md)
+- [AI Investigation Operations Runbook](docs/operations/AI_INVESTIGATION_RUNBOOK.md)
+- [AI Investigation Evaluation](docs/evaluations/AI_INVESTIGATION_EVALUATION.md)
+- [ADR 0007: Durable Evidence-Grounded Investigations](docs/adr/0007-durable-evidence-grounded-investigations.md)
+- [ADR 0008: Untrusted Evidence and Read-Only Tools](docs/adr/0008-untrusted-evidence-and-read-only-tools.md)
+- [ADR 0009: Human Approval and Separation of Duties](docs/adr/0009-human-approval-and-separation-of-duties.md)
+
 ## Enterprise sandbox documentation
 
 - [Sprint 4 Hardened Sandbox Architecture](docs/architecture/SPRINT_4_HARDENED_SANDBOX.md)
@@ -246,4 +279,4 @@ Remaining enterprise gates include:
 
 ## Next product milestone
 
-Sprint 5 will build the diagnosis and Codex orchestration plane: repository mapping, evidence-normalized prompts, root-cause hypotheses, bounded tool contracts, treatment plans, human approval and independently reviewable diagnosis output. Sprint 5 will consume only the evidence and artifacts produced by the hardened Sprint 4 execution boundary.
+Sprint 6 will build the controlled recovery plane: approval-bound patch generation inside isolated worktrees, smallest-safe-change enforcement, independent security review, deterministic verification, rollback evidence and a reviewable pull-request package. No recovery action will bypass the Sprint 5 treatment-plan approval or the Sprint 4 sandbox boundary.

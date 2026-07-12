@@ -45,6 +45,23 @@ Security fixes are applied to the current `main` branch and current supported de
 - Cancellation, timeout, worker failure and stale leases all trigger idempotent cleanup; every execution write is lease-fenced and cleanup corrections append immutable proof rather than overwriting failed evidence.
 - CI includes linting, type checking, tests, build verification, secret scanning, dependency auditing, CodeQL, dependency review, SBOM generation, Docker security smoke tests and container scanning.
 
+## AI investigation security guarantees
+
+- Repository files, logs, comments, metadata, artifacts and user context are untrusted evidence and cannot grant tools or override policy.
+- Model access is organization allowlisted and budgeted by invocation count, input/output tokens, estimated cost, concurrency and duration.
+- Provider calls use strict structured output; response storage is disabled by default and provider errors are redacted.
+- The model receives no GitHub, OpenAI, database, Redis, Docker, session or application credentials.
+- Agent tools are read-only, role-specific, tenant-scoped, path confined, size bounded, lease fenced and audited.
+- Diagnoses and plans are rejected unless schemas, citations, evidence hashes, security review and independent critic rules pass.
+- Hidden model reasoning is not requested, persisted or displayed; only concise structured findings and evidence references are retained.
+- Treatment-plan decisions require authenticated human `USER` identities. Service, system and agent actors cannot approve, reject or request revision.
+- Multi-approval plans count distinct human actors; duplicate decisions are idempotent and final approval is emitted only at the configured threshold.
+- AI context, model/tool audit, diagnosis, plan, approval and usage records are tenant protected by forced RLS and immutable where appropriate.
+
+Prohibited AI configurations include arbitrary shell or network tools, model-selected permissions, unbounded repository context, provider credentials in prompts, raw chain-of-thought storage, automatic plan approval, silent model substitution and cross-tenant retrieval.
+
+See [AI Orchestration Threat Model](docs/security/AI_ORCHESTRATION_THREAT_MODEL.md) and [AI Investigation Operations Runbook](docs/operations/AI_INVESTIGATION_RUNBOOK.md).
+
 ## Production sandbox restrictions
 
 The following configurations are prohibited for enterprise deployment:

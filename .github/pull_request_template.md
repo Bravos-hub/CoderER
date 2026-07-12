@@ -41,6 +41,20 @@ Complete this section when repository-controlled code or sandbox infrastructure 
 - [ ] `npm run test:integration:sandbox:persistence` passes when sandbox persistence changed.
 - [ ] `npm run test:integration:sandbox:docker` passes when provider or policy behavior changed.
 
+## AI investigation review
+
+Complete this section when model, prompt, context, tool, diagnosis, treatment-plan or approval behavior changes.
+
+- [ ] Repository and incident material remains untrusted evidence, not instructions.
+- [ ] Tool access is read-only, agent-specific, tenant-scoped, bounded and audited.
+- [ ] Structured output, citation, policy, security-review and critic validation fail closed.
+- [ ] Provider credentials and raw secret-bearing payloads never enter prompts, queues, logs or browser data.
+- [ ] Token, cost, invocation and duration budgets are enforced before additional work starts.
+- [ ] Service, system and agent actors cannot decide treatment plans.
+- [ ] Multiple required approvals come from distinct authenticated human users.
+- [ ] `npm run test:evaluation:investigation` passes.
+- [ ] `npm run test:integration:investigation` passes when persistence or RLS changed.
+
 ## Rollback
 
 Describe how to disable or reverse this change safely, including how to reconcile active sandbox executions and prove that resources are absent.

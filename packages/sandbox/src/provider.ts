@@ -201,8 +201,7 @@ export class DockerSandboxProvider implements SandboxProvider {
       this.options.trustedWorkspaceRoot,
       input.worktreePath,
     );
-    const normalizedWorktreePath = worktreePath.replace(/\\/g, '/').replace(/^([a-zA-Z]):/, '/$1');
-    if (normalizedWorktreePath.includes(':') || /[\r\n]/.test(worktreePath)) {
+    if (worktreePath.includes(':') || /[\r\n]/.test(worktreePath)) {
       throw new Error(
         'Configured repository workspace paths must not contain colons or line breaks.',
       );

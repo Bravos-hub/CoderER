@@ -71,6 +71,93 @@ const tenancySchema = z.object({
   IDEMPOTENCY_TTL_SECONDS: z.coerce.number().int().min(60).max(604_800).default(86_400),
 });
 
+const aiSchema = z.object({
+  OPENAI_API_KEY: z.string().trim().min(20).max(512).optional(),
+  OPENAI_BASE_URL: z.string().url().default('https://api.openai.com/v1'),
+  OPENAI_ORGANIZATION: z.string().trim().min(1).max(255).optional(),
+  OPENAI_PROJECT: z.string().trim().min(1).max(255).optional(),
+  AI_ALLOWED_MODELS: z
+    .string()
+    .default('gpt-5.6')
+    .transform((value) =>
+      value
+        .split(',')
+        .map((entry) => entry.trim())
+        .filter(Boolean),
+    )
+    .refine((value) => value.length > 0 && value.length <= 20, 'Provide 1-20 approved AI models'),
+  AI_DEFAULT_MODEL: z.string().trim().min(1).max(128).default('gpt-5.6'),
+  AI_MODEL_PRICING_JSON: z
+    .string()
+    .default('{}')
+    .transform((value, context) => {
+      try {
+        const parsed = JSON.parse(value) as Record<string, unknown>;
+        return z
+          .record(
+            z.string().min(1).max(128),
+            z.object({
+              inputUsdPerMillion: z.number().nonnegative().max(10_000),
+              outputUsdPerMillion: z.number().nonnegative().max(10_000),
+              cachedInputUsdPerMillion: z.number().nonnegative().max(10_000).default(0),
+            }),
+          )
+          .parse(parsed);
+      } catch {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'AI_MODEL_PRICING_JSON must be a valid model pricing map.',
+        });
+        return z.NEVER;
+      }
+    }),
+  AI_INVESTIGATION_CONCURRENCY: z.coerce.number().int().min(1).max(50).default(2),
+  AI_INVESTIGATION_LEASE_MS: z.coerce
+    .number()
+    .int()
+    .min(15_000)
+    .max(10 * 60 * 1000)
+    .default(90_000),
+  AI_INVESTIGATION_RECONCILE_INTERVAL_MS: z.coerce
+    .number()
+    .int()
+    .min(10_000)
+    .max(60 * 60 * 1000)
+    .default(60_000),
+  AI_INVESTIGATION_STALE_AFTER_MS: z.coerce
+    .number()
+    .int()
+    .min(60_000)
+    .max(24 * 60 * 60 * 1000)
+    .default(60 * 60 * 1000),
+  AI_MAX_CONTEXT_ITEMS: z.coerce.number().int().min(10).max(10_000).default(500),
+  AI_MAX_CONTEXT_BYTES: z.coerce
+    .number()
+    .int()
+    .min(64 * 1024)
+    .max(100 * 1024 * 1024)
+    .default(8 * 1024 * 1024),
+  AI_MAX_CONTEXT_ITEM_BYTES: z.coerce
+    .number()
+    .int()
+    .min(1_024)
+    .max(4 * 1024 * 1024)
+    .default(256 * 1024),
+  AI_MAX_MODEL_INVOCATIONS: z.coerce.number().int().min(1).max(100).default(20),
+  AI_MAX_TOOL_CALLS: z.coerce.number().int().min(0).max(1_000).default(100),
+  AI_MAX_INPUT_TOKENS: z.coerce.number().int().min(1_000).max(5_000_000).default(200_000),
+  AI_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(256).max(500_000).default(30_000),
+  AI_MAX_COST_USD: z.coerce.number().min(0.01).max(10_000).default(25),
+  AI_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .min(10_000)
+    .max(6 * 60 * 60 * 1000)
+    .default(45 * 60 * 1000),
+  AI_RETENTION_DAYS: z.coerce.number().int().min(1).max(3_650).default(30),
+  AI_STORE_PROVIDER_RESPONSES: booleanFromEnvironment('false'),
+});
+
 const sandboxPolicySchema = z.object({
   SANDBOX_DEFAULT_IMAGE: z.string().trim().min(1).max(512).default('node:24-bookworm-slim'),
   SANDBOX_HELPER_IMAGE: z.string().trim().min(1).max(512).default('node:24-bookworm-slim'),
@@ -159,6 +246,7 @@ const apiSchema = baseSchema
   .merge(databaseSchema)
   .merge(tenancySchema)
   .merge(sandboxPolicySchema)
+  .merge(aiSchema)
   .extend({
     API_PORT: z.coerce.number().int().positive().max(65_535).default(4100),
     API_BODY_LIMIT: z
@@ -193,6 +281,32 @@ const apiSchema = baseSchema
         path: ['CODEER_API_KEY'],
         message: 'CODEER_API_KEY is required when API_AUTH_MODE=api-key',
       });
+    }
+    if (config.NODE_ENV === 'production' && !config.OPENAI_API_KEY) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['OPENAI_API_KEY'],
+        message: 'Production API requires OPENAI_API_KEY for investigation orchestration.',
+      });
+    }
+    if (!config.AI_ALLOWED_MODELS.includes(config.AI_DEFAULT_MODEL)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['AI_DEFAULT_MODEL'],
+        message: 'AI_DEFAULT_MODEL must appear in AI_ALLOWED_MODELS.',
+      });
+    }
+    if (config.NODE_ENV === 'production') {
+      const missingPricing = config.AI_ALLOWED_MODELS.filter(
+        (model) => !config.AI_MODEL_PRICING_JSON[model],
+      );
+      if (missingPricing.length > 0) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['AI_MODEL_PRICING_JSON'],
+          message: `Production AI pricing is required for approved models: ${missingPricing.join(', ')}`,
+        });
+      }
     }
     if (config.NODE_ENV === 'production' && config.API_AUTH_MODE === 'disabled') {
       context.addIssue({
@@ -274,6 +388,7 @@ const apiSchema = baseSchema
 const workerSchema = baseSchema
   .merge(databaseSchema)
   .merge(sandboxPolicySchema)
+  .merge(aiSchema)
   .extend({
     REDIS_URL: z.string().url().default('redis://localhost:6379'),
     WORKER_CONCURRENCY: z.coerce.number().int().positive().max(50).default(2),
@@ -332,6 +447,32 @@ const workerSchema = baseSchema
   })
   .superRefine((config, context) => {
     validateSandboxImageRegistries(config, context);
+    if (config.NODE_ENV === 'production' && !config.OPENAI_API_KEY) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['OPENAI_API_KEY'],
+        message: 'Production investigation workers require OPENAI_API_KEY.',
+      });
+    }
+    if (!config.AI_ALLOWED_MODELS.includes(config.AI_DEFAULT_MODEL)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['AI_DEFAULT_MODEL'],
+        message: 'AI_DEFAULT_MODEL must appear in AI_ALLOWED_MODELS.',
+      });
+    }
+    if (config.NODE_ENV === 'production') {
+      const missingPricing = config.AI_ALLOWED_MODELS.filter(
+        (model) => !config.AI_MODEL_PRICING_JSON[model],
+      );
+      if (missingPricing.length > 0) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['AI_MODEL_PRICING_JSON'],
+          message: `Production AI pricing is required for approved models: ${missingPricing.join(', ')}`,
+        });
+      }
+    }
     if (config.NODE_ENV === 'production' && config.DATABASE_URL === DEVELOPMENT_DATABASE_URL) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
@@ -434,6 +575,9 @@ const workerSchema = baseSchema
       });
     }
   });
+
+export type ApiConfig = z.infer<typeof apiSchema>;
+export type WorkerConfig = z.infer<typeof workerSchema>;
 
 export const loadApiConfig = (env: NodeJS.ProcessEnv) => apiSchema.parse(env);
 export const loadWorkerConfig = (env: NodeJS.ProcessEnv) => workerSchema.parse(env);
