@@ -32,7 +32,7 @@ function bearerToken(request: Request): string | undefined {
 
 export function createApiAuthMiddleware(options: ApiAuthOptions) {
   return (request: Request, response: Response, next: NextFunction): void => {
-    if (options.mode === 'disabled' || request.path === '/api/v1/health') {
+    if (options.mode === 'disabled' || request.path.startsWith('/api/v1/health')) {
       next();
       return;
     }

@@ -9,13 +9,18 @@ COPY packages/config/package.json packages/config/package.json
 COPY packages/contracts/package.json packages/contracts/package.json
 COPY packages/database/package.json packages/database/package.json
 COPY packages/github/package.json packages/github/package.json
+COPY packages/incidents/package.json packages/incidents/package.json
 COPY packages/logger/package.json packages/logger/package.json
 COPY packages/repository/package.json packages/repository/package.json
+COPY packages/security/package.json packages/security/package.json
 RUN npm ci --ignore-scripts
 COPY tsconfig.base.json ./
 COPY apps/web apps/web
 COPY packages/contracts packages/contracts
-RUN npm run build -w @codeer/contracts && npm run build -w @codeer/web
+COPY packages/security packages/security
+RUN npm run build -w @codeer/contracts \
+  && npm run build -w @codeer/security \
+  && npm run build -w @codeer/web
 
 FROM node:24-bookworm-slim AS runtime
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0

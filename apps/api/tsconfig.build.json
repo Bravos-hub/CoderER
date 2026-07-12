@@ -9,7 +9,8 @@
       "@codeer/contracts": ["../../packages/contracts/dist/index.d.ts"],
       "@codeer/config": ["../../packages/config/dist/index.d.ts"],
       "@codeer/logger": ["../../packages/logger/dist/index.d.ts"],
-      "@codeer/database": ["../../packages/database/dist/index.d.ts"]
+      "@codeer/database": ["../../packages/database/dist/index.d.ts"],
+      "@codeer/security": ["../../packages/security/dist/index.d.ts"]
     }
   },
   "exclude": ["**/*.spec.ts"]

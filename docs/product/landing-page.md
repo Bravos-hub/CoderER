@@ -132,13 +132,13 @@ The interface should show their activity as an orchestrated timeline rather than
 
 Show a concise before-and-after comparison:
 
-| Check | Before | After |
-|---|---:|---:|
-| Production build | Failed | Passed |
-| Unit tests | 11/14 | 14/14 |
-| Authentication journey | Failed | Passed |
-| API contracts | 2 mismatches | Aligned |
-| Repository health | 46/100 | 91/100 |
+| Check                  |       Before |   After |
+| ---------------------- | -----------: | ------: |
+| Production build       |       Failed |  Passed |
+| Unit tests             |        11/14 |   14/14 |
+| Authentication journey |       Failed |  Passed |
+| API contracts          | 2 mismatches | Aligned |
+| Repository health      |       46/100 |  91/100 |
 
 ## Final call to action
 

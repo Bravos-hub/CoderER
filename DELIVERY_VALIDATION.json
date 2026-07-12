@@ -1,16 +1,18 @@
 {
   "project": "CodeER",
-  "version": "0.1.0",
+  "version": "0.2.0-sprint3",
   "deliveryDate": "2026-07-12",
   "scope": [
     "Sprint 1 secure workspace foundation",
-    "Sprint 2 repository intake"
+    "Sprint 2 controlled repository intake",
+    "Sprint 3 enterprise incident engine"
   ],
   "validation": {
+    "workspaceStructure": "passed",
     "format": "passed",
     "lint": "passed",
-    "typecheck": "passed across 9 workspaces",
-    "tests": "11 passed in 3 test files",
+    "typecheck": "passed across 11 workspaces",
+    "unitTests": "31 passed in 7 test files",
     "sharedPackageBuilds": "passed",
     "apiBuild": "passed",
     "workerBuild": "passed",
@@ -20,11 +22,16 @@
       "critical": 0,
       "high": 0,
       "moderate": 5,
-      "low": 0
+      "low": 0,
+      "policy": "CI fails at high or critical severity; moderate transitive findings are tracked"
     },
-    "sbom": "CycloneDX generated",
-    "yamlParsing": "passed",
-    "dockerImageBuild": "not executed because Docker is unavailable in the build environment"
+    "migrationSyntax": "passed against embedded PostgreSQL compatibility runtime after omitting unavailable pgcrypto extension bootstrap",
+    "databaseIntegration": "configured in GitHub Actions with PostgreSQL 17; not executed locally because PostgreSQL and Docker are unavailable",
+    "prismaSchemaValidation": "not executed because the isolated environment could not resolve Prisma binary downloads",
+    "sbom": "CycloneDX regenerated",
+    "dockerImageBuild": "not executed because Docker is unavailable in the build environment",
+    "databaseRoleSeparation": "runtime role provisioning implemented; API and worker use a non-superuser NOBYPASSRLS role in CI and Compose",
+    "containerBuilds": "configured as a four-image GitHub Actions matrix; not executed locally because Docker is unavailable"
   },
-  "enterpriseGate": "closed pending tenant identity/RBAC, hardened execution sandbox, encrypted evidence storage, immutable audit events, egress policy, and security integration tests"
+  "enterpriseGate": "closed pending workforce OIDC and SCIM, external policy enforcement, KMS-backed secrets and encryption, hardened per-session execution sandboxes, evidence object storage, regional resilience, load and penetration testing, and formal operational readiness review"
 }

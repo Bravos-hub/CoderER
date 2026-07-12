@@ -10,12 +10,22 @@ import {
 describe('CodeER contracts', () => {
   it('applies the default incident source', () => {
     const value = CreateIncidentSchema.parse({
-      repositoryId: 'repo-1',
+      repositoryId: '7f3df97f-56fa-4e9a-b3a8-c5b87df4a7bc',
       title: 'Production build failed',
       description: 'The deployment pipeline cannot build the web application.',
-      severity: IncidentSeverity.SEV2,
     });
     expect(value.source).toBe(IncidentSource.MANUAL);
+  });
+
+  it('requires a documented reason for manual severity overrides', () => {
+    expect(() =>
+      CreateIncidentSchema.parse({
+        repositoryId: '7f3df97f-56fa-4e9a-b3a8-c5b87df4a7bc',
+        title: 'Production build failed',
+        description: 'The deployment pipeline cannot build the web application.',
+        severity: IncidentSeverity.SEV2,
+      }),
+    ).toThrow();
   });
 
   it('accepts a valid GitHub repository admission', () => {
@@ -57,6 +67,9 @@ describe('CodeER contracts', () => {
     const value = RepositoryIntakeJobSchema.parse({
       intakeId: 'd9428888-122b-11e1-b85c-61cd3cbb3210',
       repositoryUrl: 'https://github.com/Bravos-hub/CoderER',
+      organizationId: '00000000-0000-4000-8000-000000000001',
+      requestedBy: 'user:delta',
+      requestId: 'req_01J2CODEERSPRINT3',
       requestedAt: '2026-07-12T00:00:00.000Z',
     });
     expect(value.intakeId).toBe('d9428888-122b-11e1-b85c-61cd3cbb3210');

@@ -1,15 +1,21 @@
+import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
-import { Worker } from 'bullmq';
+import { Queue, Worker } from 'bullmq';
 import { loadWorkerConfig } from '@codeer/config';
 import {
+  INCIDENT_TRIAGE_JOB,
+  INCIDENT_TRIAGE_OUTBOX_TOPIC,
+  INCIDENT_TRIAGE_QUEUE,
+  IncidentTriageJobSchema,
   RECOVERY_QUEUE,
-  REPOSITORY_INTAKE_QUEUE,
   REPOSITORY_INTAKE_JOB,
+  REPOSITORY_INTAKE_QUEUE,
   RecoveryJobSchema,
   RepositoryIntakeJobSchema,
   RepositoryIntakeResultSchema,
   RepositoryIntakeStatus,
 } from '@codeer/contracts';
+import { closeDatabase, IncidentStore } from '@codeer/database';
 import { parseGitHubRepositoryUrl, readGitHubRepository } from '@codeer/github';
 import { logger } from '@codeer/logger';
 import { RepositoryWorkspace } from '@codeer/repository';
@@ -25,7 +31,18 @@ const connection = {
   maxRetriesPerRequest: null,
 };
 
+const workerId = `worker-${randomUUID()}`;
 const repositoryWorkspace = new RepositoryWorkspace(config.REPOSITORY_WORKSPACE_ROOT);
+const incidentStore = new IncidentStore();
+const incidentTriageQueue = new Queue(INCIDENT_TRIAGE_QUEUE, {
+  connection,
+  defaultJobOptions: {
+    attempts: 3,
+    backoff: { type: 'exponential', delay: 2_000 },
+    removeOnComplete: { age: 86_400, count: 5_000 },
+    removeOnFail: { age: 604_800, count: 5_000 },
+  },
+});
 
 async function githubPrivateKey(): Promise<string | undefined> {
   if (config.GITHUB_APP_PRIVATE_KEY_FILE) {
@@ -53,10 +70,14 @@ const repositoryIntakeWorker = new Worker(
     if (job.name !== REPOSITORY_INTAKE_JOB)
       throw new Error(`Unsupported repository job: ${job.name}`);
     const payload = RepositoryIntakeJobSchema.parse(job.data);
+    if (payload.organizationId !== config.DEFAULT_ORGANIZATION_ID) {
+      throw new Error('Organization must be provisioned before repository intake.');
+    }
     const context = {
       jobId: job.id,
       intakeId: payload.intakeId,
       repositoryUrl: payload.repositoryUrl,
+      organizationId: payload.organizationId,
     };
 
     await job.updateProgress({ percent: 10, status: RepositoryIntakeStatus.AUTHENTICATING });
@@ -137,30 +158,117 @@ const repositoryIntakeWorker = new Worker(
       completedAt: new Date().toISOString(),
     });
 
+    const repositoryId = await incidentStore.persistRepositoryIntake(payload, result, {
+      id: config.DEFAULT_ORGANIZATION_ID,
+      slug: config.DEFAULT_ORGANIZATION_SLUG,
+      name: config.DEFAULT_ORGANIZATION_NAME,
+    });
     await job.updateProgress({ percent: 100, status: RepositoryIntakeStatus.READY });
     logger.info(
-      { ...context, worktreeId: worktree.id, branchName: worktree.branchName },
-      'Repository intake completed',
+      { ...context, repositoryId, worktreeId: worktree.id, branchName: worktree.branchName },
+      'Repository intake completed and persisted',
     );
-    return result;
+    return { ...result, repositoryId };
   },
   { connection, concurrency: config.REPOSITORY_INTAKE_CONCURRENCY },
 );
 
-recoveryWorker.on('completed', (job) => logger.info({ jobId: job.id }, 'Recovery job completed'));
-recoveryWorker.on('failed', (job, error) =>
-  logger.error({ jobId: job?.id, error }, 'Recovery job failed'),
+const incidentTriageWorker = new Worker(
+  INCIDENT_TRIAGE_QUEUE,
+  async (job) => {
+    if (job.name !== INCIDENT_TRIAGE_JOB)
+      throw new Error(`Unsupported incident triage job: ${job.name}`);
+    const payload = IncidentTriageJobSchema.parse(job.data);
+    logger.info(
+      {
+        jobId: job.id,
+        incidentId: payload.incidentId,
+        organizationId: payload.organizationId,
+        correlationId: payload.correlationId,
+      },
+      'Incident triage started',
+    );
+    const result = await incidentStore.processTriage(payload);
+    logger.info(
+      {
+        jobId: job.id,
+        incidentId: payload.incidentId,
+        severity: result.severityAssessment.severity,
+        healthScore: result.healthSnapshot.overallScore,
+      },
+      'Incident triage completed',
+    );
+    return result;
+  },
+  { connection, concurrency: config.INCIDENT_TRIAGE_CONCURRENCY },
 );
-repositoryIntakeWorker.on('completed', (job) =>
-  logger.info({ jobId: job.id }, 'Repository intake job completed'),
-);
-repositoryIntakeWorker.on('failed', (job, error) =>
-  logger.error({ jobId: job?.id, error }, 'Repository intake job failed'),
-);
+
+let publishing = false;
+async function publishOutbox(): Promise<void> {
+  if (publishing) return;
+  publishing = true;
+  try {
+    const messages = await incidentStore.claimOutboxBatch(
+      workerId,
+      config.OUTBOX_BATCH_SIZE,
+      config.OUTBOX_LOCK_TIMEOUT_MS,
+    );
+    for (const message of messages) {
+      try {
+        if (message.topic !== INCIDENT_TRIAGE_OUTBOX_TOPIC) {
+          throw new Error(`Unsupported outbox topic: ${message.topic}`);
+        }
+        const payload = IncidentTriageJobSchema.parse(message.payload);
+        await incidentTriageQueue.add(INCIDENT_TRIAGE_JOB, payload, {
+          jobId: message.deduplicationKey,
+        });
+        await incidentStore.markOutboxPublished(message.id);
+      } catch (error) {
+        await incidentStore.markOutboxFailed(
+          message.id,
+          error,
+          message.attempts,
+          config.OUTBOX_MAX_ATTEMPTS,
+        );
+        logger.error(
+          {
+            outboxId: message.id,
+            topic: message.topic,
+            attempts: message.attempts,
+            error,
+          },
+          'Outbox publish failed',
+        );
+      }
+    }
+  } finally {
+    publishing = false;
+  }
+}
+
+const outboxTimer = setInterval(() => void publishOutbox(), config.OUTBOX_POLL_INTERVAL_MS);
+outboxTimer.unref();
+void publishOutbox();
+
+for (const worker of [recoveryWorker, repositoryIntakeWorker, incidentTriageWorker]) {
+  worker.on('completed', (job) =>
+    logger.info({ jobId: job.id, queue: worker.name }, 'Job completed'),
+  );
+  worker.on('failed', (job, error) =>
+    logger.error({ jobId: job?.id, queue: worker.name, error }, 'Job failed'),
+  );
+}
 
 async function shutdown(signal: string): Promise<void> {
   logger.info({ signal }, 'Stopping CodeER workers');
-  await Promise.all([recoveryWorker.close(), repositoryIntakeWorker.close()]);
+  clearInterval(outboxTimer);
+  await Promise.all([
+    recoveryWorker.close(),
+    repositoryIntakeWorker.close(),
+    incidentTriageWorker.close(),
+    incidentTriageQueue.close(),
+  ]);
+  await closeDatabase();
   process.exit(0);
 }
 
@@ -168,8 +276,11 @@ process.on('SIGTERM', () => void shutdown('SIGTERM'));
 process.on('SIGINT', () => void shutdown('SIGINT'));
 logger.info(
   {
+    workerId,
     recoveryConcurrency: config.WORKER_CONCURRENCY,
     repositoryIntakeConcurrency: config.REPOSITORY_INTAKE_CONCURRENCY,
+    incidentTriageConcurrency: config.INCIDENT_TRIAGE_CONCURRENCY,
+    outboxPollIntervalMs: config.OUTBOX_POLL_INTERVAL_MS,
     workspaceRoot: config.REPOSITORY_WORKSPACE_ROOT,
   },
   'CodeER workers ready',

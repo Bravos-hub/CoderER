@@ -21,7 +21,9 @@
       "@codeer/logger": ["packages/logger/src/index.ts"],
       "@codeer/database": ["packages/database/src/index.ts"],
       "@codeer/github": ["packages/github/src/index.ts"],
-      "@codeer/repository": ["packages/repository/src/index.ts"]
+      "@codeer/repository": ["packages/repository/src/index.ts"],
+      "@codeer/incidents": ["packages/incidents/src/index.ts"],
+      "@codeer/security": ["packages/security/src/index.ts"]
     }
   }
 }

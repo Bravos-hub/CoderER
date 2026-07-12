@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   OnModuleDestroy,
@@ -10,6 +11,7 @@ import { loadApiConfig } from '@codeer/config';
 import {
   AdmitRepositorySchema,
   REPOSITORY_INTAKE_JOB,
+  RepositoryPermission,
   REPOSITORY_INTAKE_QUEUE,
   RepositoryIntakeJobSchema,
   RepositoryIntakeResultSchema,
@@ -18,6 +20,9 @@ import {
   type RepositoryIntakeJob,
   type RepositoryIntakeView,
 } from '@codeer/contracts';
+import type { StoreActorContext } from '@codeer/database';
+import { logger } from '@codeer/logger';
+import { AuthorizationError, assertRepositoryPermission } from '@codeer/security';
 
 function connectionFromRedisUrl(redisUrlValue: string) {
   const redisUrl = new URL(redisUrlValue);
@@ -48,7 +53,8 @@ export class RepositoriesService implements OnModuleDestroy {
     });
   }
 
-  async admit(rawInput: unknown): Promise<RepositoryIntakeView> {
+  async admit(context: StoreActorContext, rawInput: unknown): Promise<RepositoryIntakeView> {
+    this.authorize(context, RepositoryPermission.ADMIT);
     const parsed = AdmitRepositorySchema.safeParse(rawInput);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
 
@@ -56,6 +62,9 @@ export class RepositoriesService implements OnModuleDestroy {
     const payload = RepositoryIntakeJobSchema.parse({
       ...parsed.data,
       intakeId,
+      organizationId: context.organizationId,
+      requestedBy: context.actorId,
+      requestId: context.requestId,
       requestedAt: new Date().toISOString(),
     });
     const options: JobsOptions = { jobId: intakeId };
@@ -68,20 +77,50 @@ export class RepositoriesService implements OnModuleDestroy {
     });
   }
 
-  async get(intakeId: string): Promise<RepositoryIntakeView> {
+  async get(context: StoreActorContext, intakeId: string): Promise<RepositoryIntakeView> {
+    this.authorize(context, RepositoryPermission.READ);
     const job = await Job.fromId<RepositoryIntakeJob>(this.queue, intakeId);
-    if (!job) throw new NotFoundException(`Repository intake ${intakeId} was not found`);
+    if (!job || job.data.organizationId !== context.organizationId)
+      throw new NotFoundException(`Repository intake ${intakeId} was not found`);
     return await this.toView(job);
   }
 
-  async list(): Promise<RepositoryIntakeView[]> {
+  async list(context: StoreActorContext): Promise<RepositoryIntakeView[]> {
+    this.authorize(context, RepositoryPermission.READ);
     const jobs = await this.queue.getJobs(
       ['active', 'waiting', 'delayed', 'completed', 'failed'],
       0,
       49,
       true,
     );
-    return await Promise.all(jobs.map((job) => this.toView(job)));
+    return await Promise.all(
+      jobs
+        .filter((job) => job.data.organizationId === context.organizationId)
+        .map((job) => this.toView(job)),
+    );
+  }
+
+  private authorize(context: StoreActorContext, permission: RepositoryPermission): void {
+    try {
+      assertRepositoryPermission(context.actorRoles, permission);
+    } catch (error) {
+      if (error instanceof AuthorizationError) {
+        logger.warn(
+          {
+            organizationId: context.organizationId,
+            actorId: context.actorId,
+            actorType: context.actorType,
+            actorRoles: context.actorRoles,
+            requestId: context.requestId,
+            permission,
+            outcome: 'DENIED',
+          },
+          'Repository authorization denied',
+        );
+        throw new ForbiddenException(error.message);
+      }
+      throw error;
+    }
   }
 
   async onModuleDestroy(): Promise<void> {

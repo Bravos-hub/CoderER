@@ -22,7 +22,9 @@
     "class-validator": "0.15.1",
     "helmet": "8.2.0",
     "reflect-metadata": "0.2.2",
-    "rxjs": "7.8.2"
+    "rxjs": "7.8.2",
+    "@codeer/database": "0.1.0",
+    "@codeer/security": "0.1.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.5"

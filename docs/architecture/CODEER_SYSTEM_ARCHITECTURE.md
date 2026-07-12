@@ -393,9 +393,7 @@ Every agent response should conform to a versioned schema.
   "causalChain": ["string"],
   "evidenceIds": ["ev_123"],
   "affectedFiles": ["package.json"],
-  "alternativeHypotheses": [
-    {"hypothesis": "string", "rejectedBecause": "string"}
-  ],
+  "alternativeHypotheses": [{ "hypothesis": "string", "rejectedBecause": "string" }],
   "confidence": 0.94,
   "limitations": []
 }

@@ -28,7 +28,9 @@ export default function HomePage() {
             <Link className="buttonLink" href="/connect">
               Admit repository
             </Link>
-            <button className="secondary">View architecture</button>
+            <Link className="buttonLink secondaryLink" href="/incidents">
+              Open command center
+            </Link>
           </div>
         </div>
         <article className="incident">

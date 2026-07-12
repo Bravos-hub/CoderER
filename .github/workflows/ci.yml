@@ -15,7 +15,37 @@ concurrency:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: codeer
+          POSTGRES_USER: codeer
+          POSTGRES_PASSWORD: codeer-ci-admin-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U codeer -d codeer"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      NODE_ENV: test
+      DATABASE_ADMIN_URL: postgresql://codeer:codeer-ci-admin-password@localhost:5432/codeer
+      DATABASE_RUNTIME_USER: codeer_app
+      DATABASE_RUNTIME_PASSWORD: codeer-ci-runtime-password
+      DATABASE_URL: postgresql://codeer_app:codeer-ci-runtime-password@localhost:5432/codeer
+      REDIS_URL: redis://localhost:6379
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -29,3 +59,33 @@ jobs:
       - run: npm run typecheck
       - run: npm run test
       - run: npm run build
+      - run: npm run db:apply:sprint3
+      - run: npm run db:provision:runtime
+      - run: npm run test:integration:incident
+      - run: npm run security:check
+
+  container-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: api
+            dockerfile: infra/docker/Dockerfile.api
+          - name: worker
+            dockerfile: infra/docker/Dockerfile.worker
+          - name: web
+            dockerfile: infra/docker/Dockerfile.web
+          - name: migrate
+            dockerfile: infra/docker/Dockerfile.migrate
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: false
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}

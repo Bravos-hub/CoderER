@@ -69,18 +69,18 @@ CodeER prepares reviewable changes. It does not silently merge into protected br
 
 ## Product language
 
-| Conventional term | CodeER term |
-|---|---|
-| Repository onboarding | Admit repository |
-| Error or outage | Incident |
-| Priority | Triage level |
-| Analysis | Diagnosis |
-| Proposed fix | Treatment plan |
-| Applied patch | Procedure |
-| Verification run | Recovery checks |
-| Successful repair | Stabilized |
-| Pull request package | Discharge package |
-| Previous run | Case history |
+| Conventional term     | CodeER term       |
+| --------------------- | ----------------- |
+| Repository onboarding | Admit repository  |
+| Error or outage       | Incident          |
+| Priority              | Triage level      |
+| Analysis              | Diagnosis         |
+| Proposed fix          | Treatment plan    |
+| Applied patch         | Procedure         |
+| Verification run      | Recovery checks   |
+| Successful repair     | Stabilized        |
+| Pull request package  | Discharge package |
+| Previous run          | Case history      |
 
 Technical logs, filenames, commands, and test output must remain precise and should not be replaced with metaphorical language.
 

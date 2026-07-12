@@ -29,7 +29,29 @@ export function RepositoryForm() {
           'message' in body && body.message ? body.message : 'Repository admission failed',
         );
       }
-      setResult(body as RepositoryIntakeView);
+      const queued = body as RepositoryIntakeView;
+      setResult(queued);
+      let current = queued;
+      for (
+        let attempt = 0;
+        attempt < 60 && !['READY', 'FAILED'].includes(current.status);
+        attempt += 1
+      ) {
+        await new Promise((resolve) => window.setTimeout(resolve, 1_000));
+        const poll = await fetch(
+          `/api/repositories/intakes/${encodeURIComponent(current.intakeId)}`,
+          {
+            cache: 'no-store',
+          },
+        );
+        const next = (await poll.json()) as RepositoryIntakeView | { message?: string };
+        if (!poll.ok)
+          throw new Error(
+            'message' in next && next.message ? next.message : 'Repository intake lookup failed',
+          );
+        current = next as RepositoryIntakeView;
+        setResult(current);
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Repository admission failed');
     } finally {
@@ -61,6 +83,11 @@ export function RepositoryForm() {
           <strong>Intake queued</strong>
           <span>{result.intakeId}</span>
           <span>Status: {result.status}</span>
+          {result.result?.repositoryId ? (
+            <a href={`/incidents?repositoryId=${encodeURIComponent(result.result.repositoryId)}`}>
+              Open incident command center
+            </a>
+          ) : null}
         </output>
       ) : null}
       {error ? <p className="formError">{error}</p> : null}

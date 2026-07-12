@@ -7,62 +7,221 @@ datasource db {
   provider = "postgresql"
 }
 
+enum RepositoryProvider {
+  GITHUB
+}
+
+enum RepositoryVisibility {
+  PUBLIC
+  PRIVATE
+  INTERNAL
+}
+
+enum RepositoryIntakeStatus {
+  QUEUED
+  AUTHENTICATING
+  READING_METADATA
+  CLONING
+  INSPECTING
+  CREATING_WORKTREE
+  READY
+  FAILED
+}
+
+enum WorktreeStatus {
+  ACTIVE
+  REMOVED
+  FAILED
+}
+
+enum IncidentSeverity {
+  SEV1 @map("SEV-1")
+  SEV2 @map("SEV-2")
+  SEV3 @map("SEV-3")
+  SEV4 @map("SEV-4")
+}
+
+enum IncidentStatus {
+  ADMITTED
+  TRIAGING
+  INVESTIGATING
+  AWAITING_APPROVAL
+  RECOVERING
+  VERIFYING
+  VERIFIED
+  FAILED
+  CANCELLED
+}
+
+enum RecoveryStage {
+  ADMIT
+  TRIAGE
+  DIAGNOSE
+  RECOVER
+  VERIFY
+}
+
+enum IncidentSource {
+  MANUAL
+  GITHUB_ACTIONS
+  WEBHOOK
+  API
+  MONITORING
+}
+
+enum ActorType {
+  USER
+  SERVICE
+  AGENT
+  SYSTEM
+}
+
+enum IncidentEventType {
+  INCIDENT_ADMITTED
+  TRIAGE_REQUESTED
+  TRIAGE_STARTED
+  EVIDENCE_RECORDED
+  SEVERITY_ASSESSED
+  HEALTH_SNAPSHOT_RECORDED
+  TRIAGE_COMPLETED
+  STATUS_CHANGED
+  RECOVERY_APPROVAL_REQUESTED
+  RECOVERY_APPROVED
+  INCIDENT_FAILED
+  INCIDENT_CANCELLED
+}
+
+enum EvidenceKind {
+  ERROR
+  LOG
+  COMMAND_OUTPUT
+  CI_RUN
+  REPOSITORY_METADATA
+  CONFIGURATION
+  TEST_RESULT
+  BUILD_RESULT
+  USER_OBSERVATION
+  HEALTH_SIGNAL
+}
+
+enum EvidenceSource {
+  USER
+  GITHUB
+  SANDBOX
+  CI
+  AGENT
+  SYSTEM
+}
+
+enum EvidenceSensitivity {
+  PUBLIC
+  INTERNAL
+  CONFIDENTIAL
+  RESTRICTED
+}
+
+enum HealthStatus {
+  HEALTHY
+  AT_RISK
+  DEGRADED
+  CRITICAL
+}
+
+enum OutboxStatus {
+  PENDING
+  PROCESSING
+  PUBLISHED
+  FAILED
+  DEAD_LETTER
+}
+
+enum AuditOutcome {
+  SUCCESS
+  DENIED
+  FAILURE
+}
+
+model Organization {
+  id             String                     @id @default(uuid())
+  slug           String                     @unique
+  name           String
+  repositories   Repository[]
+  intakes        RepositoryIntake[]
+  incidents      Incident[]
+  evidence       Evidence[]
+  healthSnapshots RepositoryHealthSnapshot[]
+  auditLogs      AuditLog[]
+  outboxMessages OutboxMessage[]
+  idempotency    IdempotencyRecord[]
+  createdAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
+}
+
 model Repository {
-  id                 String             @id @default(uuid())
-  provider           String
+  id                 String                     @id @default(uuid())
+  organizationId     String
+  provider           RepositoryProvider
   providerRepoId     String
   installationId     String?
   owner              String
   name               String
   fullName           String
-  visibility         String
+  visibility         RepositoryVisibility
   defaultBranch      String
   cloneUrl           String
   htmlUrl            String
   headSha            String?
   lastIntakeAt       DateTime?
+  organization       Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   incidents          Incident[]
   intakes            RepositoryIntake[]
   worktrees          RepositoryWorktree[]
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
+  healthSnapshots    RepositoryHealthSnapshot[]
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
 
-  @@unique([provider, providerRepoId])
-  @@unique([provider, fullName])
+  @@unique([organizationId, provider, providerRepoId])
+  @@unique([organizationId, provider, fullName])
+  @@index([organizationId, updatedAt])
 }
 
 model RepositoryIntake {
-  id                 String               @id @default(uuid())
+  id                 String                 @id @default(uuid())
+  organizationId     String
   repositoryId       String?
+  requestedBy        String
   requestedUrl       String
   requestedBranch    String?
   selectedBaseBranch String?
-  status             String
-  progress           Int                  @default(0)
+  status             RepositoryIntakeStatus
+  progress           Int                    @default(0)
+  errorCode          String?
   error              String?
-  repository         Repository?          @relation(fields: [repositoryId], references: [id], onDelete: SetNull)
+  requestId          String
+  organization       Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  repository         Repository?            @relation(fields: [repositoryId], references: [id], onDelete: SetNull)
   worktree           RepositoryWorktree?
-  requestedAt        DateTime             @default(now())
+  requestedAt        DateTime               @default(now())
   completedAt        DateTime?
-  updatedAt          DateTime             @updatedAt
+  updatedAt          DateTime               @updatedAt
 
-  @@index([status, requestedAt])
+  @@index([organizationId, status, requestedAt])
   @@index([repositoryId, requestedAt])
 }
 
 model RepositoryWorktree {
-  id             String           @id @default(uuid())
+  id             String            @id @default(uuid())
   repositoryId   String
-  intakeId       String           @unique
+  intakeId       String            @unique
   branchName     String
   baseBranch     String
   baseSha        String
   relativePath   String
-  status         String
-  repository     Repository       @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-  intake         RepositoryIntake @relation(fields: [intakeId], references: [id], onDelete: Cascade)
+  status         WorktreeStatus
+  repository     Repository        @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  intake         RepositoryIntake  @relation(fields: [intakeId], references: [id], onDelete: Cascade)
   sessions       RecoverySession[]
-  createdAt      DateTime         @default(now())
+  createdAt      DateTime          @default(now())
   removedAt      DateTime?
 
   @@index([repositoryId, createdAt])
@@ -70,21 +229,132 @@ model RepositoryWorktree {
 }
 
 model Incident {
-  id           String            @id @default(uuid())
-  repositoryId String
-  title        String
-  description  String
-  severity     String
-  status       String
-  stage        String
-  source       String
-  repository   Repository        @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-  sessions     RecoverySession[]
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
+  id                  String                    @id @default(uuid())
+  organizationId      String
+  repositoryId        String
+  shortCode           String                    @unique
+  title               String
+  description         String
+  severity            IncidentSeverity
+  severityScore       Int
+  severityReason      String
+  status              IncidentStatus
+  stage               RecoveryStage
+  source              IncidentSource
+  externalReference   String?
+  labels              String[]                  @default([])
+  version             Int                       @default(1)
+  impact              Json?
+  signals             Json?
+  organization        Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  repository          Repository                @relation(fields: [repositoryId], references: [id], onDelete: Restrict)
+  sessions            RecoverySession[]
+  events              IncidentEvent[]
+  evidence            Evidence[]
+  severityAssessments SeverityAssessment[]
+  healthSnapshots     RepositoryHealthSnapshot[]
+  auditLogs           AuditLog[]
+  reportedAt          DateTime
+  acknowledgedAt      DateTime?
+  resolvedAt          DateTime?
+  lastActivityAt      DateTime
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
 
-  @@index([repositoryId, createdAt])
-  @@index([status, severity])
+  @@index([organizationId, status, severity, lastActivityAt(sort: Desc)])
+  @@index([organizationId, repositoryId, createdAt(sort: Desc)])
+  @@index([organizationId, externalReference])
+}
+
+model IncidentEvent {
+  id            String            @id @default(uuid())
+  incidentId    String
+  sequence      Int
+  type          IncidentEventType
+  payload       Json
+  actorType     ActorType
+  actorId       String?
+  requestId     String?
+  correlationId String?
+  causationId   String?
+  previousHash  String?
+  eventHash     String            @unique
+  occurredAt    DateTime
+  incident      Incident          @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  createdAt     DateTime          @default(now())
+
+  @@unique([incidentId, sequence])
+  @@index([incidentId, occurredAt])
+  @@index([correlationId])
+}
+
+model SeverityAssessment {
+  id                 String           @id @default(uuid())
+  incidentId         String
+  score              Int
+  severity           IncidentSeverity
+  calculatedSeverity IncidentSeverity
+  overrideApplied    Boolean          @default(false)
+  rationale          String
+  factors            Json
+  policyVersion      String
+  createdByType      ActorType
+  createdById        String?
+  incident           Incident         @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  createdAt          DateTime         @default(now())
+
+  @@index([incidentId, createdAt(sort: Desc)])
+  @@index([severity, createdAt(sort: Desc)])
+}
+
+model Evidence {
+  id              String              @id @default(uuid())
+  organizationId  String
+  incidentId      String
+  sessionId       String?
+  kind            EvidenceKind
+  source          EvidenceSource
+  sensitivity     EvidenceSensitivity
+  title           String
+  summary         String
+  payload         Json
+  contentType     String              @default("application/json")
+  byteSize        Int
+  digest          String
+  redacted        Boolean             @default(false)
+  redactionCount  Int                 @default(0)
+  origin          String?
+  collectionMethod String?
+  observedAt      DateTime
+  expiresAt       DateTime?
+  organization    Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  incident        Incident            @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  session         RecoverySession?    @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  createdAt       DateTime            @default(now())
+
+  @@unique([incidentId, digest, kind])
+  @@index([organizationId, incidentId, createdAt(sort: Desc)])
+  @@index([expiresAt])
+}
+
+model RepositoryHealthSnapshot {
+  id                 String         @id @default(uuid())
+  organizationId     String
+  repositoryId       String
+  incidentId         String?
+  overallScore       Int
+  status             HealthStatus
+  dimensions         Json
+  evidenceCount      Int
+  calculationVersion String
+  organization       Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  repository         Repository     @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  incident           Incident?      @relation(fields: [incidentId], references: [id], onDelete: SetNull)
+  createdAt          DateTime       @default(now())
+
+  @@index([organizationId, repositoryId, createdAt(sort: Desc)])
+  @@index([incidentId, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
 }
 
 model RecoverySession {
@@ -105,18 +375,6 @@ model RecoverySession {
   @@index([worktreeId])
 }
 
-model Evidence {
-  id        String          @id @default(uuid())
-  sessionId String
-  kind      String
-  summary   String
-  payload   Json
-  session   RecoverySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  createdAt DateTime        @default(now())
-
-  @@index([sessionId, createdAt])
-}
-
 model VerificationReport {
   id                      String          @id @default(uuid())
   sessionId               String          @unique
@@ -128,4 +386,69 @@ model VerificationReport {
   confidence              Float
   session                 RecoverySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   createdAt               DateTime        @default(now())
+}
+
+model OutboxMessage {
+  id             String         @id @default(uuid())
+  organizationId String
+  topic          String
+  partitionKey   String
+  deduplicationKey String        @unique
+  payload        Json
+  status         OutboxStatus   @default(PENDING)
+  attempts       Int            @default(0)
+  availableAt    DateTime       @default(now())
+  lockedAt       DateTime?
+  lockedBy       String?
+  publishedAt    DateTime?
+  lastErrorCode  String?
+  lastError      String?
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([status, availableAt, createdAt])
+  @@index([organizationId, topic, createdAt])
+}
+
+model AuditLog {
+  id             String       @id @default(uuid())
+  organizationId String
+  incidentId     String?
+  action         String
+  resourceType   String
+  resourceId     String
+  actorType      ActorType
+  actorId        String?
+  outcome        AuditOutcome
+  requestId      String?
+  correlationId  String?
+  reason         String?
+  metadata       Json
+  previousHash   String?
+  auditHash      String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  incident       Incident?    @relation(fields: [incidentId], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@index([resourceType, resourceId, createdAt(sort: Desc)])
+  @@index([incidentId, createdAt(sort: Desc)])
+}
+
+model IdempotencyRecord {
+  id             String       @id @default(uuid())
+  organizationId String
+  scope          String
+  key            String
+  requestHash    String
+  response       Json
+  statusCode     Int
+  resourceId     String?
+  expiresAt      DateTime
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@unique([organizationId, scope, key])
+  @@index([expiresAt])
 }

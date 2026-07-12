@@ -200,11 +200,7 @@ Every diagnosis should contain:
       "finding": "No build:super script is defined"
     }
   ],
-  "affectedFiles": [
-    "package.json",
-    "apps/chat-app/package.json",
-    "vercel.json"
-  ]
+  "affectedFiles": ["package.json", "apps/chat-app/package.json", "vercel.json"]
 }
 ```
 
