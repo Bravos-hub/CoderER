@@ -7,6 +7,10 @@ import {
   INCIDENT_TRIAGE_OUTBOX_TOPIC,
   INCIDENT_TRIAGE_QUEUE,
   IncidentTriageJobSchema,
+  SANDBOX_EXECUTION_JOB,
+  SANDBOX_EXECUTION_QUEUE,
+  SANDBOX_REPRODUCTION_OUTBOX_TOPIC,
+  SandboxExecutionJobSchema,
   RECOVERY_QUEUE,
   REPOSITORY_INTAKE_JOB,
   REPOSITORY_INTAKE_QUEUE,
@@ -19,6 +23,7 @@ import { closeDatabase, IncidentStore } from '@codeer/database';
 import { parseGitHubRepositoryUrl, readGitHubRepository } from '@codeer/github';
 import { logger } from '@codeer/logger';
 import { RepositoryWorkspace } from '@codeer/repository';
+import { createSandboxWorker } from './sandbox-execution-worker.js';
 
 const config = loadWorkerConfig(process.env);
 const redisUrl = new URL(config.REDIS_URL);
@@ -43,6 +48,16 @@ const incidentTriageQueue = new Queue(INCIDENT_TRIAGE_QUEUE, {
     removeOnFail: { age: 604_800, count: 5_000 },
   },
 });
+
+const sandboxExecutionQueue = new Queue(SANDBOX_EXECUTION_QUEUE, {
+  connection,
+  defaultJobOptions: {
+    attempts: 1,
+    removeOnComplete: { age: 86_400, count: 2_000 },
+    removeOnFail: { age: 604_800, count: 5_000 },
+  },
+});
+const sandboxRuntime = createSandboxWorker(config, connection, workerId);
 
 async function githubPrivateKey(): Promise<string | undefined> {
   if (config.GITHUB_APP_PRIVATE_KEY_FILE) {
@@ -215,13 +230,19 @@ async function publishOutbox(): Promise<void> {
     );
     for (const message of messages) {
       try {
-        if (message.topic !== INCIDENT_TRIAGE_OUTBOX_TOPIC) {
+        if (message.topic === INCIDENT_TRIAGE_OUTBOX_TOPIC) {
+          const payload = IncidentTriageJobSchema.parse(message.payload);
+          await incidentTriageQueue.add(INCIDENT_TRIAGE_JOB, payload, {
+            jobId: message.deduplicationKey,
+          });
+        } else if (message.topic === SANDBOX_REPRODUCTION_OUTBOX_TOPIC) {
+          const payload = SandboxExecutionJobSchema.parse(message.payload);
+          await sandboxExecutionQueue.add(SANDBOX_EXECUTION_JOB, payload, {
+            jobId: message.deduplicationKey,
+          });
+        } else {
           throw new Error(`Unsupported outbox topic: ${message.topic}`);
         }
-        const payload = IncidentTriageJobSchema.parse(message.payload);
-        await incidentTriageQueue.add(INCIDENT_TRIAGE_JOB, payload, {
-          jobId: message.deduplicationKey,
-        });
         await incidentStore.markOutboxPublished(message.id);
       } catch (error) {
         await incidentStore.markOutboxFailed(
@@ -247,10 +268,21 @@ async function publishOutbox(): Promise<void> {
 }
 
 const outboxTimer = setInterval(() => void publishOutbox(), config.OUTBOX_POLL_INTERVAL_MS);
+const sandboxReconcileTimer = setInterval(
+  () => void sandboxRuntime.reconcile(),
+  config.SANDBOX_RECONCILE_INTERVAL_MS,
+);
 outboxTimer.unref();
+sandboxReconcileTimer.unref();
 void publishOutbox();
+void sandboxRuntime.reconcile();
 
-for (const worker of [recoveryWorker, repositoryIntakeWorker, incidentTriageWorker]) {
+for (const worker of [
+  recoveryWorker,
+  repositoryIntakeWorker,
+  incidentTriageWorker,
+  sandboxRuntime.worker,
+]) {
   worker.on('completed', (job) =>
     logger.info({ jobId: job.id, queue: worker.name }, 'Job completed'),
   );
@@ -262,11 +294,14 @@ for (const worker of [recoveryWorker, repositoryIntakeWorker, incidentTriageWork
 async function shutdown(signal: string): Promise<void> {
   logger.info({ signal }, 'Stopping CodeER workers');
   clearInterval(outboxTimer);
+  clearInterval(sandboxReconcileTimer);
   await Promise.all([
     recoveryWorker.close(),
     repositoryIntakeWorker.close(),
     incidentTriageWorker.close(),
+    sandboxRuntime.close(),
     incidentTriageQueue.close(),
+    sandboxExecutionQueue.close(),
   ]);
   await closeDatabase();
   process.exit(0);
@@ -280,6 +315,7 @@ logger.info(
     recoveryConcurrency: config.WORKER_CONCURRENCY,
     repositoryIntakeConcurrency: config.REPOSITORY_INTAKE_CONCURRENCY,
     incidentTriageConcurrency: config.INCIDENT_TRIAGE_CONCURRENCY,
+    sandboxExecutionConcurrency: config.SANDBOX_EXECUTION_CONCURRENCY,
     outboxPollIntervalMs: config.OUTBOX_POLL_INTERVAL_MS,
     workspaceRoot: config.REPOSITORY_WORKSPACE_ROOT,
   },

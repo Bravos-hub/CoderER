@@ -16,12 +16,19 @@ import {
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error('DATABASE_URL is required');
+const workerDatabaseUrl = process.env.DATABASE_WORKER_URL;
+if (!workerDatabaseUrl) throw new Error('DATABASE_WORKER_URL is required');
 
 const pool = createDatabasePool(databaseUrl, {
   max: 4,
   application_name: 'codeer-incident-smoke',
 });
+const workerPool = createDatabasePool(workerDatabaseUrl, {
+  max: 2,
+  application_name: 'codeer-incident-smoke-worker',
+});
 const store = new IncidentStore(pool);
+const workerStore = new IncidentStore(workerPool);
 const organizationId = randomUUID();
 const otherOrganizationId = randomUUID();
 const repositoryId = randomUUID();
@@ -135,13 +142,18 @@ try {
     throw new Error('Evidence secret redaction failed');
   }
 
-  const claimed = await store.claimOutboxBatch('ci-outbox-smoke', 10, 60_000);
-  const triageMessage = claimed.find(
-    (message) =>
-      message.partitionKey === created.id && message.topic === 'incident.triage.requested',
-  );
+  let triageMessage;
+  for (let attempt = 1; attempt <= 5; attempt += 1) {
+    const claimed = await workerStore.claimOutboxBatch('ci-outbox-smoke', 10, 60_000);
+    triageMessage = claimed.find(
+      (message) =>
+        message.partitionKey === created.id && message.topic === 'incident.triage.requested',
+    );
+    if (triageMessage) break;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
   if (!triageMessage) throw new Error('Transactional outbox did not expose the triage request');
-  await store.markOutboxPublished(triageMessage.id);
+  await workerStore.markOutboxPublished(triageMessage.id);
 
   const triage = await store.processTriage({
     incidentId: created.id,
@@ -184,4 +196,5 @@ try {
   );
 } finally {
   await pool.end();
+  await workerPool.end();
 }

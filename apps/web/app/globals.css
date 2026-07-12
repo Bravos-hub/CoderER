@@ -550,3 +550,78 @@ dd {
   background: color-mix(in srgb, var(--status-critical, #ff4d35) 12%, transparent);
   color: var(--status-critical, #ff4d35);
 }
+
+.sandboxSection {
+  margin-top: 2rem;
+}
+.sandboxGrid {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.8fr) minmax(360px, 1.2fr);
+  gap: 1rem;
+}
+.sandboxEvidenceGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+.sandboxRunList {
+  display: grid;
+  gap: 0.65rem;
+}
+.sandboxRunList button {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 0.75rem;
+  align-items: center;
+  text-align: left;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  padding: 0.8rem;
+  border-radius: var(--radius-md);
+}
+.sandboxRunList .selectedRun {
+  border-color: var(--status-investigating);
+  box-shadow: 0 0 0 1px var(--status-investigating);
+}
+.policyNote {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+.terminalPanel pre {
+  max-height: 440px;
+  overflow: auto;
+  background: var(--terminal-background);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+.formError {
+  color: var(--status-critical);
+}
+@media (max-width: 980px) {
+  .sandboxGrid,
+  .sandboxEvidenceGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.checkboxRow {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.65rem;
+  font-size: 0.88rem;
+}
+
+.checkboxRow input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+}

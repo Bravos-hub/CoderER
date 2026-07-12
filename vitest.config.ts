@@ -14,9 +14,11 @@ export default defineConfig({
       '@codeer/security': source('./packages/security/src/index.ts'),
       '@codeer/database': source('./packages/database/src/index.ts'),
       '@codeer/repository': source('./packages/repository/src/index.ts'),
+      '@codeer/sandbox': source('./packages/sandbox/src/index.ts'),
     },
   },
   test: {
     exclude: ['**/node_modules/**', '**/dist/**', '**/.next/**'],
+    pool: 'vmThreads',
   },
 });
