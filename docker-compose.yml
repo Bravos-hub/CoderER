@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: codeer
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-development-only}
     ports:
-      - '0.0.0.0:5433:5432'
+      - '127.0.0.1:5432:5432'
     volumes:
       - codeer-postgres:/var/lib/postgresql/data
     healthcheck:
@@ -31,7 +31,7 @@ services:
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
     ports:
-      - '0.0.0.0:6380:6379'
+      - '127.0.0.1:6379:6379'
     volumes:
       - codeer-redis:/data
     healthcheck:
@@ -167,7 +167,6 @@ services:
 networks:
   frontend:
   backend:
-    internal: true
   egress:
 
 volumes:
