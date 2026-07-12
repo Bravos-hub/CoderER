@@ -7,6 +7,8 @@ const requiredPaths = [
   'packages/contracts/package.json',
   'packages/config/package.json',
   'packages/logger/package.json',
+  'packages/incidents/package.json',
+  'packages/security/package.json',
   'packages/database/package.json',
   'packages/github/package.json',
   'packages/repository/package.json',

@@ -265,3 +265,288 @@ dd {
     gap: 2rem;
   }
 }
+
+.commandCenter {
+  min-height: 100vh;
+  padding-bottom: 4rem;
+}
+.commandHeader,
+.incidentDetailHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 2rem;
+  align-items: flex-end;
+  padding: 4.5rem 0 2.5rem;
+}
+.commandTitle,
+.detailTitle {
+  margin: 0.35rem 0 0.8rem;
+  font-size: clamp(2.6rem, 5vw, 4.8rem);
+}
+.detailTitle {
+  font-size: clamp(2.2rem, 4vw, 4rem);
+}
+.metricGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.metricGrid article,
+.panel {
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--surface-primary);
+}
+.metricGrid article {
+  display: grid;
+  gap: 0.55rem;
+  padding: 1.2rem;
+}
+.metricGrid article span,
+.panelHeader span {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+.metricGrid article strong {
+  font-family: 'Space Grotesk', Inter, sans-serif;
+  font-size: 1.8rem;
+}
+.commandGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(320px, 0.75fr);
+  gap: 1rem;
+}
+.panel {
+  padding: 1.2rem;
+}
+.panelHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.panelHeader h2 {
+  margin: 0.25rem 0 0;
+  font-size: 1.25rem;
+}
+.incidentTable {
+  display: grid;
+}
+.incidentRow {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.4fr) 72px 135px 90px 150px;
+  gap: 1rem;
+  align-items: center;
+  min-height: 74px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: inherit;
+  text-decoration: none;
+}
+.incidentRow:hover {
+  background: var(--surface-elevated);
+}
+.incidentRow > div {
+  display: grid;
+  gap: 0.25rem;
+}
+.incidentRow > div span,
+.incidentRow time {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+.severity {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  width: max-content;
+  min-width: 58px;
+  border-radius: 999px;
+  padding: 0.38rem 0.55rem;
+  font-family: ui-monospace, monospace;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+.severity-sev1 {
+  color: #ff7968;
+  background: rgb(255 77 53 / 16%);
+}
+.severity-sev2 {
+  color: #ffbd63;
+  background: rgb(255 181 71 / 14%);
+}
+.severity-sev3 {
+  color: #75bcff;
+  background: rgb(75 168 255 / 14%);
+}
+.severity-sev4 {
+  color: #56e6a3;
+  background: rgb(43 213 132 / 14%);
+}
+.incidentCreateForm {
+  display: grid;
+  gap: 1rem;
+}
+.incidentCreateForm label {
+  display: grid;
+  gap: 0.45rem;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.incidentCreateForm input,
+.incidentCreateForm textarea,
+.incidentCreateForm select {
+  width: 100%;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 0.8rem;
+  color: var(--text-primary);
+  background: var(--background-secondary);
+  font: inherit;
+}
+.incidentCreateForm textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+.signalGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+}
+.incidentCreateForm .checkLabel {
+  display: flex;
+  gap: 0.55rem;
+  align-items: center;
+  padding: 0.7rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+}
+.incidentCreateForm .checkLabel input {
+  width: auto;
+}
+.emptyState {
+  display: grid;
+  gap: 0.45rem;
+  place-items: center;
+  min-height: 220px;
+  color: var(--text-secondary);
+  text-align: center;
+}
+.detailEmpty {
+  min-height: 70vh;
+}
+.detailActions {
+  display: flex;
+  gap: 0.8rem;
+  align-items: center;
+}
+.detailGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.65fr);
+  gap: 1rem;
+}
+.detailSide {
+  display: grid;
+  gap: 1rem;
+  align-content: start;
+}
+.timeline,
+.evidenceList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.timeline li {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  gap: 1rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.timeline li > span {
+  color: var(--brand-primary);
+  font-family: ui-monospace, monospace;
+}
+.timeline li div,
+.evidenceList li {
+  display: grid;
+  gap: 0.35rem;
+}
+.timeline time,
+.timeline code,
+.evidenceList span,
+.evidenceList code {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.evidenceList li {
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.compactDl div {
+  padding: 0.7rem 0;
+}
+@media (max-width: 980px) {
+  .commandGrid,
+  .detailGrid {
+    grid-template-columns: 1fr;
+  }
+  .incidentRow {
+    grid-template-columns: minmax(180px, 1fr) 70px 120px;
+  }
+  .incidentRow > span:nth-of-type(3),
+  .incidentRow time {
+    display: none;
+  }
+}
+@media (max-width: 720px) {
+  .commandHeader,
+  .incidentDetailHeader {
+    align-items: flex-start;
+    flex-direction: column;
+    padding-top: 3rem;
+  }
+  .metricGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .incidentRow {
+    grid-template-columns: 1fr 65px;
+  }
+  .incidentRow > span:nth-of-type(2),
+  .incidentRow > span:nth-of-type(3),
+  .incidentRow time {
+    display: none;
+  }
+  .signalGrid {
+    grid-template-columns: 1fr;
+  }
+}
+.secondaryLink {
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+}
+
+.integrityValid,
+.integrityInvalid {
+  border-radius: 999px;
+  padding: 0.35rem 0.65rem;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.integrityValid {
+  border: 1px solid color-mix(in srgb, var(--status-stable, #2bd584) 45%, transparent);
+  background: color-mix(in srgb, var(--status-stable, #2bd584) 12%, transparent);
+  color: var(--status-stable, #2bd584);
+}
+
+.integrityInvalid {
+  border: 1px solid color-mix(in srgb, var(--status-critical, #ff4d35) 45%, transparent);
+  background: color-mix(in srgb, var(--status-critical, #ff4d35) 12%, transparent);
+  color: var(--status-critical, #ff4d35);
+}

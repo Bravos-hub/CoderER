@@ -329,44 +329,44 @@ Do not:
 
 ### Core dark surfaces
 
-| Token | Value | Purpose |
-|---|---:|---|
-| `background.primary` | `#071018` | Application and website base |
-| `background.secondary` | `#0C1722` | Secondary page regions |
-| `surface.primary` | `#101E2A` | Cards and panels |
-| `surface.elevated` | `#152735` | Modals, floating panels |
-| `surface.hover` | `#1A3040` | Hover and selected surfaces |
-| `terminal.background` | `#050A0F` | Logs and terminal output |
+| Token                  |     Value | Purpose                      |
+| ---------------------- | --------: | ---------------------------- |
+| `background.primary`   | `#071018` | Application and website base |
+| `background.secondary` | `#0C1722` | Secondary page regions       |
+| `surface.primary`      | `#101E2A` | Cards and panels             |
+| `surface.elevated`     | `#152735` | Modals, floating panels      |
+| `surface.hover`        | `#1A3040` | Hover and selected surfaces  |
+| `terminal.background`  | `#050A0F` | Logs and terminal output     |
 
 ### Borders
 
-| Token | Value |
-|---|---:|
+| Token           |     Value |
+| --------------- | --------: |
 | `border.subtle` | `#203544` |
 | `border.strong` | `#315064` |
-| `border.focus` | `#4BA8FF` |
+| `border.focus`  | `#4BA8FF` |
 
 ### Text
 
-| Token | Value |
-|---|---:|
-| `text.primary` | `#F5F7FA` |
+| Token            |     Value |
+| ---------------- | --------: |
+| `text.primary`   | `#F5F7FA` |
 | `text.secondary` | `#A2B2BF` |
-| `text.muted` | `#708593` |
-| `text.inverse` | `#071018` |
+| `text.muted`     | `#708593` |
+| `text.inverse`   | `#071018` |
 
 ### Brand and status
 
-| Token | Value | Meaning |
-|---|---:|---|
-| `brand.primary` | `#FF4D35` | CodeER ER mark, primary critical emphasis |
-| `brand.hover` | `#FF654F` | Hover |
-| `brand.active` | `#D93624` | Pressed/active |
-| `status.critical` | `#FF4D35` | SEV-1 and active blocking failures |
-| `status.warning` | `#FFB547` | Degraded or incomplete |
-| `status.investigating` | `#4BA8FF` | Mapping, evidence collection |
-| `status.recovering` | `#9A87FF` | Codex orchestration and repair activity |
-| `status.stable` | `#2BD584` | Passing verification and recovered state |
+| Token                  |     Value | Meaning                                   |
+| ---------------------- | --------: | ----------------------------------------- |
+| `brand.primary`        | `#FF4D35` | CodeER ER mark, primary critical emphasis |
+| `brand.hover`          | `#FF654F` | Hover                                     |
+| `brand.active`         | `#D93624` | Pressed/active                            |
+| `status.critical`      | `#FF4D35` | SEV-1 and active blocking failures        |
+| `status.warning`       | `#FFB547` | Degraded or incomplete                    |
+| `status.investigating` | `#4BA8FF` | Mapping, evidence collection              |
+| `status.recovering`    | `#9A87FF` | Codex orchestration and repair activity   |
+| `status.stable`        | `#2BD584` | Passing verification and recovered state  |
 
 ### Colour behaviour
 
@@ -386,17 +386,17 @@ Blue communicates investigation and active evidence gathering. Violet is used sp
 
 ### Scale
 
-| Token | Size | Suggested line height |
-|---|---:|---:|
-| `text.xs` | 12 px | 16 px |
-| `text.sm` | 14 px | 20 px |
-| `text.base` | 16 px | 24 px |
-| `text.lg` | 18 px | 28 px |
-| `text.xl` | 22 px | 30 px |
-| `text.2xl` | 28 px | 36 px |
-| `text.3xl` | 36 px | 44 px |
-| `text.4xl` | 48 px | 56 px |
-| `text.display` | 64 px | 68 px |
+| Token          |  Size | Suggested line height |
+| -------------- | ----: | --------------------: |
+| `text.xs`      | 12 px |                 16 px |
+| `text.sm`      | 14 px |                 20 px |
+| `text.base`    | 16 px |                 24 px |
+| `text.lg`      | 18 px |                 28 px |
+| `text.xl`      | 22 px |                 30 px |
+| `text.2xl`     | 28 px |                 36 px |
+| `text.3xl`     | 36 px |                 44 px |
+| `text.4xl`     | 48 px |                 56 px |
+| `text.display` | 64 px |                 68 px |
 
 ### Weight rules
 

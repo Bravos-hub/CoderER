@@ -9,29 +9,29 @@ CodeER combines a developer operations center with clinical precision and contro
 ```css
 :root {
   --background-primary: #071018;
-  --background-secondary: #0C1722;
-  --surface-primary: #101E2A;
+  --background-secondary: #0c1722;
+  --surface-primary: #101e2a;
   --surface-elevated: #152735;
-  --surface-hover: #1A3040;
+  --surface-hover: #1a3040;
 
   --border-subtle: #203544;
   --border-strong: #315064;
 
-  --text-primary: #F5F7FA;
-  --text-secondary: #A2B2BF;
+  --text-primary: #f5f7fa;
+  --text-secondary: #a2b2bf;
   --text-muted: #708593;
 
-  --brand-primary: #FF4D35;
-  --brand-hover: #FF654F;
-  --brand-active: #D93624;
+  --brand-primary: #ff4d35;
+  --brand-hover: #ff654f;
+  --brand-active: #d93624;
 
-  --status-critical: #FF4D35;
-  --status-warning: #FFB547;
-  --status-investigating: #4BA8FF;
-  --status-recovering: #9A87FF;
-  --status-stable: #2BD584;
+  --status-critical: #ff4d35;
+  --status-warning: #ffb547;
+  --status-investigating: #4ba8ff;
+  --status-recovering: #9a87ff;
+  --status-stable: #2bd584;
 
-  --terminal-background: #050A0F;
+  --terminal-background: #050a0f;
   --code-highlight: #173144;
 }
 ```

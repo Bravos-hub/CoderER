@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: codeer
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-development-only}
     ports:
-      - '127.0.0.1:5432:5432'
+      - '0.0.0.0:5433:5432'
     volumes:
       - codeer-postgres:/var/lib/postgresql/data
     healthcheck:
@@ -31,7 +31,7 @@ services:
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
     ports:
-      - '127.0.0.1:6379:6379'
+      - '0.0.0.0:6380:6379'
     volumes:
       - codeer-redis:/data
     healthcheck:
@@ -46,6 +46,27 @@ services:
     networks: [backend]
     restart: unless-stopped
 
+  migrate:
+    profiles: ['app']
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.migrate
+    environment:
+      NODE_ENV: production
+      DATABASE_ADMIN_URL: postgresql://codeer:${POSTGRES_PASSWORD:-development-only}@postgres:5432/codeer
+      DATABASE_RUNTIME_USER: ${DATABASE_RUNTIME_USER:-codeer_app}
+      DATABASE_RUNTIME_PASSWORD: ${DATABASE_RUNTIME_PASSWORD:-development-app-only}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    networks: [backend]
+    restart: 'no'
+
   api:
     profiles: ['app']
     build:
@@ -55,17 +76,23 @@ services:
       NODE_ENV: production
       API_PORT: 4100
       API_AUTH_MODE: api-key
+      API_REQUIRE_TENANT_CONTEXT: 'true'
+      API_REQUIRE_SIGNED_CONTEXT: 'true'
+      REQUIRE_IDEMPOTENCY_KEYS: 'true'
+      REQUEST_CONTEXT_SIGNING_SECRET: ${REQUEST_CONTEXT_SIGNING_SECRET:-}
+      REQUEST_CONTEXT_SIGNING_SECRET_PREVIOUS: ${REQUEST_CONTEXT_SIGNING_SECRET_PREVIOUS:-}
+      DEFAULT_ORGANIZATION_ID: ${DEFAULT_ORGANIZATION_ID:-00000000-0000-4000-8000-000000000001}
       CODEER_API_KEY: ${CODEER_API_KEY:-}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
       REDIS_URL: ${REDIS_URL_DOCKER:-redis://redis:6379}
-      DATABASE_URL: postgresql://codeer:${POSTGRES_PASSWORD:-development-only}@postgres:5432/codeer?schema=public
+      DATABASE_URL: postgresql://${DATABASE_RUNTIME_USER:-codeer_app}:${DATABASE_RUNTIME_PASSWORD:-development-app-only}@postgres:5432/codeer?schema=public
     ports:
       - '127.0.0.1:4100:4100'
     depends_on:
       redis:
         condition: service_healthy
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     read_only: true
     tmpfs:
       - /tmp:size=64m,mode=1777
@@ -82,7 +109,12 @@ services:
     environment:
       NODE_ENV: production
       REDIS_URL: ${REDIS_URL_DOCKER:-redis://redis:6379}
-      DATABASE_URL: postgresql://codeer:${POSTGRES_PASSWORD:-development-only}@postgres:5432/codeer?schema=public
+      DATABASE_URL: postgresql://${DATABASE_RUNTIME_USER:-codeer_app}:${DATABASE_RUNTIME_PASSWORD:-development-app-only}@postgres:5432/codeer?schema=public
+      INCIDENT_TRIAGE_CONCURRENCY: ${INCIDENT_TRIAGE_CONCURRENCY:-4}
+      OUTBOX_POLL_INTERVAL_MS: ${OUTBOX_POLL_INTERVAL_MS:-1000}
+      OUTBOX_BATCH_SIZE: ${OUTBOX_BATCH_SIZE:-50}
+      OUTBOX_LOCK_TIMEOUT_MS: ${OUTBOX_LOCK_TIMEOUT_MS:-30000}
+      OUTBOX_MAX_ATTEMPTS: ${OUTBOX_MAX_ATTEMPTS:-10}
       REPOSITORY_WORKSPACE_ROOT: /var/lib/codeer/workspaces
       REPOSITORY_CLONE_DEPTH: ${REPOSITORY_CLONE_DEPTH:-1}
       MAX_REPOSITORY_FILES: ${MAX_REPOSITORY_FILES:-100000}
@@ -97,8 +129,8 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     read_only: true
     tmpfs:
       - /tmp:size=256m,mode=1777
@@ -116,10 +148,14 @@ services:
       NODE_ENV: production
       CODEER_API_URL_INTERNAL: http://api:4100/api/v1
       CODEER_INTERNAL_API_KEY: ${CODEER_API_KEY:-}
+      CODEER_ORGANIZATION_ID: ${DEFAULT_ORGANIZATION_ID:-00000000-0000-4000-8000-000000000001}
+      CODEER_BFF_ACTOR_ID: codeer-web-bff
+      CODEER_CONTEXT_SIGNING_SECRET: ${REQUEST_CONTEXT_SIGNING_SECRET:-}
     ports:
       - '127.0.0.1:3000:3000'
     depends_on:
-      - api
+      api:
+        condition: service_started
     read_only: true
     tmpfs:
       - /tmp:size=64m,mode=1777

@@ -7,7 +7,7 @@ import { loadApiConfig } from '@codeer/config';
 import { logger } from '@codeer/logger';
 import { AppModule } from './app.module.js';
 import { createApiAuthMiddleware } from './security/api-auth.middleware.js';
-import { requestContextMiddleware } from './security/request-context.middleware.js';
+import { createRequestContextMiddleware } from './security/request-context.middleware.js';
 import { SecureExceptionFilter } from './security/secure-exception.filter.js';
 
 async function bootstrap(): Promise<void> {
@@ -21,7 +21,18 @@ async function bootstrap(): Promise<void> {
   app.use(helmet());
   app.use(json({ limit: config.API_BODY_LIMIT, strict: true }));
   app.use(urlencoded({ extended: false, limit: config.API_BODY_LIMIT, parameterLimit: 100 }));
-  app.use(requestContextMiddleware);
+  app.use(
+    createRequestContextMiddleware({
+      requireTenantContext: config.API_REQUIRE_TENANT_CONTEXT,
+      defaultOrganizationId: config.DEFAULT_ORGANIZATION_ID,
+      requireSignedContext: config.API_REQUIRE_SIGNED_CONTEXT,
+      signingSecrets: [
+        config.REQUEST_CONTEXT_SIGNING_SECRET,
+        config.REQUEST_CONTEXT_SIGNING_SECRET_PREVIOUS,
+      ].filter((secret): secret is string => Boolean(secret)),
+      signatureMaxAgeSeconds: config.REQUEST_CONTEXT_MAX_AGE_SECONDS,
+    }),
+  );
   app.use(
     createApiAuthMiddleware({
       mode: config.API_AUTH_MODE,
@@ -34,8 +45,20 @@ async function bootstrap(): Promise<void> {
     origin: config.CORS_ALLOWED_ORIGINS,
     credentials: false,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['authorization', 'content-type', 'x-request-id'],
-    exposedHeaders: ['x-request-id'],
+    allowedHeaders: [
+      'authorization',
+      'content-type',
+      'idempotency-key',
+      'x-request-id',
+      'x-correlation-id',
+      'x-codeer-organization-id',
+      'x-codeer-actor-id',
+      'x-codeer-actor-type',
+      'x-codeer-actor-roles',
+      'x-codeer-context-timestamp',
+      'x-codeer-context-signature',
+    ],
+    exposedHeaders: ['x-request-id', 'x-correlation-id'],
     maxAge: 600,
   });
   app.useGlobalPipes(

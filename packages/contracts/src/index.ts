@@ -9,6 +9,7 @@ export enum IncidentSeverity {
 
 export enum IncidentStatus {
   ADMITTED = 'ADMITTED',
+  TRIAGING = 'TRIAGING',
   INVESTIGATING = 'INVESTIGATING',
   AWAITING_APPROVAL = 'AWAITING_APPROVAL',
   RECOVERING = 'RECOVERING',
@@ -30,6 +31,91 @@ export enum IncidentSource {
   MANUAL = 'MANUAL',
   GITHUB_ACTIONS = 'GITHUB_ACTIONS',
   WEBHOOK = 'WEBHOOK',
+  API = 'API',
+  MONITORING = 'MONITORING',
+}
+
+export enum ActorType {
+  USER = 'USER',
+  SERVICE = 'SERVICE',
+  AGENT = 'AGENT',
+  SYSTEM = 'SYSTEM',
+}
+
+export enum ActorRole {
+  ORGANIZATION_OWNER = 'ORGANIZATION_OWNER',
+  ORGANIZATION_ADMIN = 'ORGANIZATION_ADMIN',
+  INCIDENT_COMMANDER = 'INCIDENT_COMMANDER',
+  RESPONDER = 'RESPONDER',
+  VIEWER = 'VIEWER',
+  SERVICE = 'SERVICE',
+}
+
+export enum IncidentPermission {
+  READ = 'incident:read',
+  CREATE = 'incident:create',
+  ADD_EVIDENCE = 'incident:evidence:add',
+  REQUEST_TRIAGE = 'incident:triage:request',
+  TRANSITION = 'incident:transition',
+  READ_AUDIT = 'incident:audit:read',
+  OVERRIDE_SEVERITY = 'incident:severity:override',
+  MANAGE_RESTRICTED_EVIDENCE = 'incident:evidence:restricted',
+}
+
+export enum RepositoryPermission {
+  READ = 'repository:read',
+  ADMIT = 'repository:admit',
+}
+
+export enum IncidentEventType {
+  INCIDENT_ADMITTED = 'INCIDENT_ADMITTED',
+  TRIAGE_REQUESTED = 'TRIAGE_REQUESTED',
+  TRIAGE_STARTED = 'TRIAGE_STARTED',
+  EVIDENCE_RECORDED = 'EVIDENCE_RECORDED',
+  SEVERITY_ASSESSED = 'SEVERITY_ASSESSED',
+  HEALTH_SNAPSHOT_RECORDED = 'HEALTH_SNAPSHOT_RECORDED',
+  TRIAGE_COMPLETED = 'TRIAGE_COMPLETED',
+  STATUS_CHANGED = 'STATUS_CHANGED',
+  RECOVERY_APPROVAL_REQUESTED = 'RECOVERY_APPROVAL_REQUESTED',
+  RECOVERY_APPROVED = 'RECOVERY_APPROVED',
+  INCIDENT_FAILED = 'INCIDENT_FAILED',
+  INCIDENT_CANCELLED = 'INCIDENT_CANCELLED',
+}
+
+export enum EvidenceKind {
+  ERROR = 'ERROR',
+  LOG = 'LOG',
+  COMMAND_OUTPUT = 'COMMAND_OUTPUT',
+  CI_RUN = 'CI_RUN',
+  REPOSITORY_METADATA = 'REPOSITORY_METADATA',
+  CONFIGURATION = 'CONFIGURATION',
+  TEST_RESULT = 'TEST_RESULT',
+  BUILD_RESULT = 'BUILD_RESULT',
+  USER_OBSERVATION = 'USER_OBSERVATION',
+  HEALTH_SIGNAL = 'HEALTH_SIGNAL',
+}
+
+export enum EvidenceSource {
+  USER = 'USER',
+  GITHUB = 'GITHUB',
+  SANDBOX = 'SANDBOX',
+  CI = 'CI',
+  AGENT = 'AGENT',
+  SYSTEM = 'SYSTEM',
+}
+
+export enum EvidenceSensitivity {
+  PUBLIC = 'PUBLIC',
+  INTERNAL = 'INTERNAL',
+  CONFIDENTIAL = 'CONFIDENTIAL',
+  RESTRICTED = 'RESTRICTED',
+}
+
+export enum HealthStatus {
+  HEALTHY = 'HEALTHY',
+  AT_RISK = 'AT_RISK',
+  DEGRADED = 'DEGRADED',
+  CRITICAL = 'CRITICAL',
 }
 
 export enum RepositoryProvider {
@@ -53,24 +139,270 @@ export enum RepositoryIntakeStatus {
   FAILED = 'FAILED',
 }
 
-export const CreateIncidentSchema = z.object({
-  repositoryId: z.string().min(1),
-  title: z.string().min(3).max(160),
-  description: z.string().min(3).max(5000),
-  source: z.nativeEnum(IncidentSource).default(IncidentSource.MANUAL),
-  severity: z.nativeEnum(IncidentSeverity).optional(),
+export enum OutboxStatus {
+  PENDING = 'PENDING',
+  PROCESSING = 'PROCESSING',
+  PUBLISHED = 'PUBLISHED',
+  FAILED = 'FAILED',
+  DEAD_LETTER = 'DEAD_LETTER',
+}
+
+const UuidSchema = z.string().uuid();
+const SafeLabelSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(64)
+  .regex(/^[A-Za-z0-9._:/-]+$/);
+
+export const IncidentImpactSchema = z.object({
+  availability: z.number().int().min(0).max(5).default(0),
+  affectedUsers: z.number().int().min(0).max(1_000_000_000).default(0),
+  revenueImpact: z.number().int().min(0).max(5).default(0),
+  dataIntegrity: z.number().int().min(0).max(5).default(0),
+  securityImpact: z.number().int().min(0).max(5).default(0),
+  environment: z.enum(['development', 'test', 'staging', 'production']).default('development'),
 });
+export type IncidentImpact = z.infer<typeof IncidentImpactSchema>;
+
+export const IncidentSignalsSchema = z.object({
+  errorMessage: z.string().trim().min(1).max(20_000).optional(),
+  failingCommand: z.string().trim().min(1).max(2_000).optional(),
+  logExcerpt: z.string().max(100_000).optional(),
+  ciRunUrl: z.string().url().max(2_048).optional(),
+  affectedEnvironment: z.enum(['development', 'test', 'staging', 'production']).optional(),
+  securityExposure: z.boolean().default(false),
+  dataIntegrityRisk: z.boolean().default(false),
+  productionUnavailable: z.boolean().default(false),
+  deploymentBlocked: z.boolean().default(false),
+  authenticationBroken: z.boolean().default(false),
+  failingTests: z.boolean().default(false),
+  dependencyIssue: z.boolean().default(false),
+  apiContractMismatch: z.boolean().default(false),
+  frontendFunctionalityFailure: z.boolean().default(false),
+  workaroundAvailable: z.boolean().default(false),
+  recurrenceCount: z.number().int().min(0).max(10_000).default(0),
+});
+export type IncidentSignals = z.infer<typeof IncidentSignalsSchema>;
+
+export const CreateIncidentSchema = z
+  .object({
+    repositoryId: UuidSchema,
+    title: z.string().trim().min(3).max(160),
+    description: z.string().trim().min(3).max(10_000),
+    source: z.nativeEnum(IncidentSource).default(IncidentSource.MANUAL),
+    severity: z.nativeEnum(IncidentSeverity).optional(),
+    severityOverrideReason: z.string().trim().min(10).max(1_000).optional(),
+    externalReference: z.string().trim().min(1).max(255).optional(),
+    labels: z.array(SafeLabelSchema).max(20).default([]),
+    reportedAt: z.string().datetime().optional(),
+    impact: IncidentImpactSchema.optional(),
+    signals: IncidentSignalsSchema.optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.severity && !value.severityOverrideReason) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['severityOverrideReason'],
+        message: 'A documented reason is required when overriding calculated severity',
+      });
+    }
+    if (!value.severity && value.severityOverrideReason) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['severity'],
+        message: 'severity must be supplied with severityOverrideReason',
+      });
+    }
+  });
 export type CreateIncidentInput = z.infer<typeof CreateIncidentSchema>;
 
-export const IncidentSchema = CreateIncidentSchema.extend({
-  id: z.string().uuid(),
+export const IncidentSchema = z.object({
+  id: UuidSchema,
+  organizationId: UuidSchema,
+  repositoryId: UuidSchema,
+  shortCode: z.string().regex(/^ER-[0-9]{8}-[A-Z0-9]{6}$/),
+  title: z.string().min(3).max(160),
+  description: z.string().min(3).max(10_000),
+  source: z.nativeEnum(IncidentSource),
   severity: z.nativeEnum(IncidentSeverity),
+  severityScore: z.number().int().min(0).max(100),
+  severityReason: z.string().min(1).max(2_000),
   status: z.nativeEnum(IncidentStatus),
   stage: z.nativeEnum(RecoveryStage),
+  externalReference: z.string().max(255).nullable(),
+  labels: z.array(z.string()),
+  version: z.number().int().positive(),
+  reportedAt: z.string().datetime(),
+  acknowledgedAt: z.string().datetime().nullable(),
+  resolvedAt: z.string().datetime().nullable(),
+  lastActivityAt: z.string().datetime(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
 export type Incident = z.infer<typeof IncidentSchema>;
+
+export const IncidentListQuerySchema = z.object({
+  cursor: z.string().min(1).max(512).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+  repositoryId: UuidSchema.optional(),
+  status: z.nativeEnum(IncidentStatus).optional(),
+  severity: z.nativeEnum(IncidentSeverity).optional(),
+  source: z.nativeEnum(IncidentSource).optional(),
+});
+export type IncidentListQuery = z.infer<typeof IncidentListQuerySchema>;
+
+export const IncidentListSchema = z.object({
+  items: z.array(IncidentSchema),
+  nextCursor: z.string().max(512).nullable(),
+});
+export type IncidentList = z.infer<typeof IncidentListSchema>;
+
+export const IncidentEventSchema = z.object({
+  id: UuidSchema,
+  incidentId: UuidSchema,
+  sequence: z.number().int().positive(),
+  type: z.nativeEnum(IncidentEventType),
+  payload: z.unknown(),
+  actorType: z.nativeEnum(ActorType),
+  actorId: z.string().max(255).nullable(),
+  requestId: z.string().max(128).nullable(),
+  correlationId: z.string().max(128).nullable(),
+  causationId: z.string().max(128).nullable(),
+  previousHash: z.string().length(64).nullable(),
+  eventHash: z.string().length(64),
+  occurredAt: z.string().datetime(),
+  createdAt: z.string().datetime(),
+});
+export type IncidentEvent = z.infer<typeof IncidentEventSchema>;
+
+export const IncidentEventIntegritySchema = z.object({
+  valid: z.boolean(),
+  checkedEvents: z.number().int().nonnegative(),
+  brokenSequence: z.number().int().positive().nullable(),
+  reason: z.string().max(500).nullable(),
+});
+export type IncidentEventIntegrity = z.infer<typeof IncidentEventIntegritySchema>;
+
+export const CreateEvidenceSchema = z
+  .object({
+    kind: z.nativeEnum(EvidenceKind),
+    source: z.nativeEnum(EvidenceSource),
+    sensitivity: z.nativeEnum(EvidenceSensitivity).default(EvidenceSensitivity.INTERNAL),
+    title: z.string().trim().min(3).max(200),
+    summary: z.string().trim().min(3).max(5_000),
+    payload: z.unknown(),
+    origin: z.string().trim().min(1).max(2_048).optional(),
+    observedAt: z.string().datetime().optional(),
+    expiresAt: z.string().datetime().optional(),
+  })
+  .superRefine((value, context) => {
+    const serialized = JSON.stringify(value.payload);
+    if (Buffer.byteLength(serialized, 'utf8') > 256 * 1024) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['payload'],
+        message: 'Inline evidence payload must not exceed 256 KiB',
+      });
+    }
+  });
+export type CreateEvidenceInput = z.infer<typeof CreateEvidenceSchema>;
+
+export const EvidenceSchema = CreateEvidenceSchema.safeExtend({
+  id: UuidSchema,
+  organizationId: UuidSchema,
+  incidentId: UuidSchema,
+  sessionId: UuidSchema.nullable(),
+  digest: z.string().length(64),
+  byteSize: z.number().int().nonnegative(),
+  redacted: z.boolean(),
+  redactionCount: z.number().int().nonnegative(),
+  observedAt: z.string().datetime(),
+  createdAt: z.string().datetime(),
+});
+export type Evidence = z.infer<typeof EvidenceSchema>;
+
+export const SeverityAssessmentSchema = z.object({
+  score: z.number().int().min(0).max(100),
+  severity: z.nativeEnum(IncidentSeverity),
+  calculatedSeverity: z.nativeEnum(IncidentSeverity),
+  overrideApplied: z.boolean(),
+  rationale: z.string().min(1).max(2_000),
+  factors: z.record(z.string(), z.union([z.number(), z.boolean(), z.string()])),
+  policyVersion: z.string().min(1).max(100),
+});
+export type SeverityAssessment = z.infer<typeof SeverityAssessmentSchema>;
+
+export const RepositoryHealthDimensionsSchema = z.object({
+  build: z.number().int().min(0).max(100),
+  tests: z.number().int().min(0).max(100),
+  deploymentReadiness: z.number().int().min(0).max(100),
+  dependencies: z.number().int().min(0).max(100),
+  security: z.number().int().min(0).max(100),
+  apiConsistency: z.number().int().min(0).max(100),
+  frontendFunctionality: z.number().int().min(0).max(100),
+});
+export type RepositoryHealthDimensions = z.infer<typeof RepositoryHealthDimensionsSchema>;
+
+export const RepositoryHealthSnapshotSchema = z.object({
+  id: UuidSchema,
+  organizationId: UuidSchema,
+  repositoryId: UuidSchema,
+  incidentId: UuidSchema.nullable(),
+  overallScore: z.number().int().min(0).max(100),
+  status: z.nativeEnum(HealthStatus),
+  dimensions: RepositoryHealthDimensionsSchema,
+  evidenceCount: z.number().int().nonnegative(),
+  calculationVersion: z.string().min(1).max(100),
+  createdAt: z.string().datetime(),
+});
+export type RepositoryHealthSnapshot = z.infer<typeof RepositoryHealthSnapshotSchema>;
+
+export const IncidentDetailSchema = z.object({
+  incident: IncidentSchema,
+  latestSeverityAssessment: SeverityAssessmentSchema.nullable(),
+  latestHealthSnapshot: RepositoryHealthSnapshotSchema.nullable(),
+  evidence: z.array(EvidenceSchema),
+  timeline: z.array(IncidentEventSchema),
+  timelineIntegrity: IncidentEventIntegritySchema,
+});
+export type IncidentDetail = z.infer<typeof IncidentDetailSchema>;
+
+export const RequestTriageSchema = z.object({
+  signals: IncidentSignalsSchema.optional(),
+  force: z.boolean().default(false),
+});
+export type RequestTriageInput = z.infer<typeof RequestTriageSchema>;
+
+export const TransitionIncidentSchema = z.object({
+  toStatus: z.nativeEnum(IncidentStatus),
+  expectedVersion: z.number().int().positive(),
+  reason: z.string().trim().min(5).max(2_000),
+});
+export type TransitionIncidentInput = z.infer<typeof TransitionIncidentSchema>;
+
+export const IncidentTriageJobSchema = z.object({
+  incidentId: UuidSchema,
+  organizationId: UuidSchema,
+  requestedAt: z.string().datetime(),
+  requestedBy: z.string().min(1).max(255),
+  requestId: z.string().max(128),
+  correlationId: z.string().max(128),
+  signals: IncidentSignalsSchema.optional(),
+  attempt: z.number().int().positive().default(1),
+});
+export type IncidentTriageJob = z.infer<typeof IncidentTriageJobSchema>;
+
+export const IncidentTriageResultSchema = z.object({
+  incidentId: UuidSchema,
+  status: z.nativeEnum(IncidentStatus),
+  stage: z.nativeEnum(RecoveryStage),
+  severityAssessment: SeverityAssessmentSchema,
+  healthSnapshot: RepositoryHealthSnapshotSchema,
+  evidenceIds: z.array(UuidSchema),
+  completedAt: z.string().datetime(),
+});
+export type IncidentTriageResult = z.infer<typeof IncidentTriageResultSchema>;
 
 export const GitHubRepositoryLocatorSchema = z.object({
   owner: z.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/),
@@ -98,9 +430,7 @@ export const AdmitRepositorySchema = z.object({
           url.pathname.replace(/^\/+|\/+$/g, '').split('/').length === 2
         );
       },
-      {
-        message: 'Use the canonical https://github.com/owner/repository URL',
-      },
+      { message: 'Use the canonical https://github.com/owner/repository URL' },
     ),
   installationId: z.coerce.number().int().positive().max(Number.MAX_SAFE_INTEGER).optional(),
   baseBranch: z
@@ -130,13 +460,17 @@ export const RepositoryBranchSchema = z.object({
 export type RepositoryBranch = z.infer<typeof RepositoryBranchSchema>;
 
 export const RepositoryIntakeJobSchema = AdmitRepositorySchema.extend({
-  intakeId: z.string().uuid(),
+  intakeId: UuidSchema,
+  organizationId: UuidSchema,
+  requestedBy: z.string().min(1).max(255),
+  requestId: z.string().min(1).max(128),
   requestedAt: z.string().datetime(),
 });
 export type RepositoryIntakeJob = z.infer<typeof RepositoryIntakeJobSchema>;
 
 export const RepositoryIntakeResultSchema = z.object({
-  intakeId: z.string().uuid(),
+  intakeId: UuidSchema,
+  repositoryId: UuidSchema.optional(),
   status: z.literal(RepositoryIntakeStatus.READY),
   repository: z.object({
     provider: z.literal(RepositoryProvider.GITHUB),
@@ -158,7 +492,7 @@ export const RepositoryIntakeResultSchema = z.object({
     totalBytes: z.number().int().nonnegative(),
   }),
   worktree: z.object({
-    id: z.string().uuid(),
+    id: UuidSchema,
     branchName: z.string().min(1),
     relativePath: z.string().min(1),
     baseSha: z.string().regex(/^[0-9a-f]{40}$/),
@@ -168,7 +502,7 @@ export const RepositoryIntakeResultSchema = z.object({
 export type RepositoryIntakeResult = z.infer<typeof RepositoryIntakeResultSchema>;
 
 export const RepositoryIntakeViewSchema = z.object({
-  intakeId: z.string().uuid(),
+  intakeId: UuidSchema,
   status: z.nativeEnum(RepositoryIntakeStatus),
   progress: z.number().int().min(0).max(100),
   result: RepositoryIntakeResultSchema.optional(),
@@ -179,9 +513,12 @@ export type RepositoryIntakeView = z.infer<typeof RepositoryIntakeViewSchema>;
 export const RECOVERY_QUEUE = 'codeer-recovery';
 export const REPOSITORY_INTAKE_QUEUE = 'codeer-repository-intake';
 export const REPOSITORY_INTAKE_JOB = 'repository.intake';
+export const INCIDENT_TRIAGE_QUEUE = 'codeer-incident-triage';
+export const INCIDENT_TRIAGE_JOB = 'incident.triage';
+export const INCIDENT_TRIAGE_OUTBOX_TOPIC = 'incident.triage.requested';
 
 export const RecoveryJobSchema = z.object({
-  incidentId: z.string().uuid(),
+  incidentId: UuidSchema,
   stage: z.nativeEnum(RecoveryStage),
   attempt: z.number().int().positive().default(1),
 });
