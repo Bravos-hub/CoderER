@@ -219,6 +219,7 @@ function mapEvent(row: EventRow): IncidentEvent {
 function mapEvidence(row: EvidenceRow) {
   return {
     ...row,
+    origin: row.origin ?? undefined,
     observedAt: iso(row.observedAt),
     expiresAt: row.expiresAt ? iso(row.expiresAt) : undefined,
     createdAt: iso(row.createdAt),
