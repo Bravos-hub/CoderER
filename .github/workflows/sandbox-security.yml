@@ -1,0 +1,93 @@
+name: Sandbox Security
+
+on:
+  pull_request:
+    paths:
+      - 'packages/sandbox/**'
+      - 'packages/security/**'
+      - 'packages/database/**'
+      - 'apps/api/src/reproductions/**'
+      - 'apps/worker/**'
+      - 'infra/docker/Dockerfile.worker'
+      - 'scripts/smoke-sandbox-*.mjs'
+      - '.github/workflows/sandbox-security.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'packages/sandbox/**'
+      - 'packages/security/**'
+      - 'packages/database/**'
+      - 'apps/api/src/reproductions/**'
+      - 'apps/worker/**'
+      - 'infra/docker/Dockerfile.worker'
+      - 'scripts/smoke-sandbox-*.mjs'
+      - '.github/workflows/sandbox-security.yml'
+  schedule:
+    - cron: '23 4 * * 2'
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: sandbox-security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docker-isolation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run build:packages
+      - name: Enforce remote-safe source transfer invariant
+        run: |
+          if grep -R --line-number --fixed-strings 'type=bind' packages/sandbox/src; then
+            echo 'Host bind mounts are forbidden in the sandbox provider.' >&2
+            exit 1
+          fi
+          grep -qF "['cp'," packages/sandbox/src/provider.ts
+          grep -qF '${worktreePath}/.' packages/sandbox/src/provider.ts
+      - name: Pull deterministic smoke images
+        run: |
+          docker pull node:24-bookworm-slim
+          docker image inspect node:24-bookworm-slim --format '{{.Id}} {{join .RepoDigests ","}}'
+      - name: Run hardened Docker provider smoke test
+        env:
+          SANDBOX_SMOKE_IMAGE: node:24-bookworm-slim
+          SANDBOX_HELPER_IMAGE: node:24-bookworm-slim
+        run: npm run test:integration:sandbox:docker
+      - name: Prove no managed sandbox resources remain
+        if: always()
+        run: |
+          remaining_containers="$(docker ps -aq --filter label=com.codeer.managed=true)"
+          remaining_volumes="$(docker volume ls -q --filter label=com.codeer.managed=true)"
+          test -z "$remaining_containers"
+          test -z "$remaining_volumes"
+
+  worker-image-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build worker image
+        run: docker build -t codeer-worker:sprint4 -f infra/docker/Dockerfile.worker .
+      - name: Verify runtime container metadata
+        run: |
+          test "$(docker image inspect codeer-worker:sprint4 --format '{{.Config.User}}')" = "node"
+          docker image inspect codeer-worker:sprint4 --format '{{json .Config.Entrypoint}} {{json .Config.Cmd}}'
+      - name: Scan worker image for high and critical vulnerabilities
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: codeer-worker:sprint4
+          format: table
+          exit-code: '1'
+          ignore-unfixed: false
+          vuln-type: os,library
+          severity: CRITICAL,HIGH

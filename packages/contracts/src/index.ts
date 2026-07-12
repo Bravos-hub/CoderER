@@ -60,6 +60,10 @@ export enum IncidentPermission {
   READ_AUDIT = 'incident:audit:read',
   OVERRIDE_SEVERITY = 'incident:severity:override',
   MANAGE_RESTRICTED_EVIDENCE = 'incident:evidence:restricted',
+  REQUEST_REPRODUCTION = 'incident:reproduction:request',
+  READ_REPRODUCTION = 'incident:reproduction:read',
+  CANCEL_REPRODUCTION = 'incident:reproduction:cancel',
+  OVERRIDE_SANDBOX_POLICY = 'incident:sandbox:override',
 }
 
 export enum RepositoryPermission {
@@ -80,6 +84,20 @@ export enum IncidentEventType {
   RECOVERY_APPROVED = 'RECOVERY_APPROVED',
   INCIDENT_FAILED = 'INCIDENT_FAILED',
   INCIDENT_CANCELLED = 'INCIDENT_CANCELLED',
+  REPRODUCTION_REQUESTED = 'REPRODUCTION_REQUESTED',
+  SANDBOX_POLICY_APPROVED = 'SANDBOX_POLICY_APPROVED',
+  SANDBOX_POLICY_BLOCKED = 'SANDBOX_POLICY_BLOCKED',
+  SANDBOX_PREPARING = 'SANDBOX_PREPARING',
+  REPRODUCTION_STARTED = 'REPRODUCTION_STARTED',
+  FAILURE_REPRODUCED = 'FAILURE_REPRODUCED',
+  FAILURE_NOT_REPRODUCED = 'FAILURE_NOT_REPRODUCED',
+  REPRODUCTION_TIMED_OUT = 'REPRODUCTION_TIMED_OUT',
+  REPRODUCTION_CANCELLATION_REQUESTED = 'REPRODUCTION_CANCELLATION_REQUESTED',
+  REPRODUCTION_CANCELLED = 'REPRODUCTION_CANCELLED',
+  REPRODUCTION_INCONCLUSIVE = 'REPRODUCTION_INCONCLUSIVE',
+  SANDBOX_INFRASTRUCTURE_FAILED = 'SANDBOX_INFRASTRUCTURE_FAILED',
+  SANDBOX_CLEANUP_COMPLETED = 'SANDBOX_CLEANUP_COMPLETED',
+  SANDBOX_CLEANUP_FAILED = 'SANDBOX_CLEANUP_FAILED',
 }
 
 export enum EvidenceKind {
@@ -93,6 +111,11 @@ export enum EvidenceKind {
   BUILD_RESULT = 'BUILD_RESULT',
   USER_OBSERVATION = 'USER_OBSERVATION',
   HEALTH_SIGNAL = 'HEALTH_SIGNAL',
+  SANDBOX_POLICY = 'SANDBOX_POLICY',
+  SANDBOX_LOG = 'SANDBOX_LOG',
+  SANDBOX_ARTIFACT = 'SANDBOX_ARTIFACT',
+  FAILURE_REPRODUCTION = 'FAILURE_REPRODUCTION',
+  SANDBOX_CLEANUP = 'SANDBOX_CLEANUP',
 }
 
 export enum EvidenceSource {
@@ -533,3 +556,331 @@ export const VerificationResultSchema = z.object({
   confidence: z.number().min(0).max(1),
 });
 export type VerificationResult = z.infer<typeof VerificationResultSchema>;
+
+export enum SandboxExecutionStatus {
+  REQUESTED = 'REQUESTED',
+  POLICY_CHECK = 'POLICY_CHECK',
+  PREPARING = 'PREPARING',
+  INSTALLING = 'INSTALLING',
+  REPRODUCING = 'REPRODUCING',
+  COLLECTING = 'COLLECTING',
+  CLEANING = 'CLEANING',
+  COMPLETED = 'COMPLETED',
+  POLICY_BLOCKED = 'POLICY_BLOCKED',
+  CANCELLED = 'CANCELLED',
+  TIMED_OUT = 'TIMED_OUT',
+  INFRASTRUCTURE_FAILED = 'INFRASTRUCTURE_FAILED',
+  CLEANUP_FAILED = 'CLEANUP_FAILED',
+}
+
+export enum SandboxResult {
+  REPRODUCED = 'REPRODUCED',
+  NOT_REPRODUCED = 'NOT_REPRODUCED',
+  INCONCLUSIVE = 'INCONCLUSIVE',
+  POLICY_BLOCKED = 'POLICY_BLOCKED',
+  INFRASTRUCTURE_FAILED = 'INFRASTRUCTURE_FAILED',
+}
+
+export enum SandboxNetworkMode {
+  NONE = 'NONE',
+  RESTRICTED_INSTALL = 'RESTRICTED_INSTALL',
+}
+
+export enum SandboxCommandPhase {
+  PREPARE = 'PREPARE',
+  INSTALL = 'INSTALL',
+  REPRODUCE = 'REPRODUCE',
+  COLLECT = 'COLLECT',
+}
+
+export enum SandboxCommandStatus {
+  PENDING = 'PENDING',
+  RUNNING = 'RUNNING',
+  SUCCEEDED = 'SUCCEEDED',
+  FAILED = 'FAILED',
+  TIMED_OUT = 'TIMED_OUT',
+  CANCELLED = 'CANCELLED',
+  POLICY_BLOCKED = 'POLICY_BLOCKED',
+}
+
+export enum SandboxArtifactRetention {
+  EPHEMERAL = 'EPHEMERAL',
+  INCIDENT = 'INCIDENT',
+  LEGAL_HOLD = 'LEGAL_HOLD',
+}
+
+export const SandboxResourceLimitsSchema = z.object({
+  cpuCores: z.number().positive().max(16).default(1),
+  memoryBytes: z
+    .number()
+    .int()
+    .min(128 * 1024 * 1024)
+    .max(32 * 1024 * 1024 * 1024)
+    .default(1024 * 1024 * 1024),
+  pids: z.number().int().min(16).max(4096).default(256),
+  workspaceBytes: z
+    .number()
+    .int()
+    .min(64 * 1024 * 1024)
+    .max(50 * 1024 * 1024 * 1024)
+    .default(2 * 1024 * 1024 * 1024),
+  tempBytes: z
+    .number()
+    .int()
+    .min(16 * 1024 * 1024)
+    .max(8 * 1024 * 1024 * 1024)
+    .default(512 * 1024 * 1024),
+  commandTimeoutMs: z
+    .number()
+    .int()
+    .min(1_000)
+    .max(60 * 60 * 1000)
+    .default(15 * 60 * 1000),
+  executionTimeoutMs: z
+    .number()
+    .int()
+    .min(5_000)
+    .max(6 * 60 * 60 * 1000)
+    .default(45 * 60 * 1000),
+  maximumCommands: z.number().int().min(1).max(50).default(10),
+  maximumLogBytes: z
+    .number()
+    .int()
+    .min(16 * 1024)
+    .max(100 * 1024 * 1024)
+    .default(8 * 1024 * 1024),
+  maximumArtifactBytes: z
+    .number()
+    .int()
+    .min(0)
+    .max(1024 * 1024 * 1024)
+    .default(64 * 1024 * 1024),
+});
+export type SandboxResourceLimits = z.infer<typeof SandboxResourceLimitsSchema>;
+export const SandboxResourceLimitOverridesSchema = SandboxResourceLimitsSchema.partial();
+export type SandboxResourceLimitOverrides = z.infer<typeof SandboxResourceLimitOverridesSchema>;
+
+export const SandboxNetworkPolicySchema = z.object({
+  mode: z.nativeEnum(SandboxNetworkMode).default(SandboxNetworkMode.NONE),
+  dockerNetwork: z
+    .string()
+    .trim()
+    .min(1)
+    .max(128)
+    .regex(/^[A-Za-z0-9_.-]+$/)
+    .optional(),
+  allowedRegistries: z.array(z.string().trim().min(1).max(253)).max(20).default([]),
+  allowedDomains: z.array(z.string().trim().min(1).max(253)).max(100).default([]),
+  denyPrivateNetworks: z.boolean().default(true),
+  denyMetadataServices: z.boolean().default(true),
+});
+export type SandboxNetworkPolicy = z.infer<typeof SandboxNetworkPolicySchema>;
+
+const SandboxExecutableSchema = z.enum(['npm', 'pnpm', 'yarn', 'node']);
+const SandboxArgumentSchema = z
+  .string()
+  .min(1)
+  .max(512)
+  .refine(
+    (value) => ![...value].some((character) => ['\0', '\r', '\n'].includes(character)),
+    'Arguments must not contain control characters',
+  );
+
+export const SandboxCommandRequestSchema = z.object({
+  phase: z.nativeEnum(SandboxCommandPhase),
+  executable: SandboxExecutableSchema,
+  arguments: z.array(SandboxArgumentSchema).max(64),
+  workingDirectory: z.string().trim().min(1).max(512).default('.'),
+  timeoutMs: z
+    .number()
+    .int()
+    .min(1_000)
+    .max(60 * 60 * 1000)
+    .optional(),
+  networkMode: z.nativeEnum(SandboxNetworkMode).default(SandboxNetworkMode.NONE),
+  expectedExitCodes: z.array(z.number().int().min(0).max(255)).min(1).max(16).default([0]),
+  environment: z
+    .record(
+      z.string().regex(/^[A-Z][A-Z0-9_]{0,63}$/),
+      z
+        .string()
+        .max(4096)
+        .refine((value) => !value.includes('\0'), 'Environment values must not contain NUL bytes'),
+    )
+    .refine(
+      (value) => Object.keys(value).length <= 32,
+      'At most 32 environment variables are allowed',
+    )
+    .default({}),
+});
+export type SandboxCommandRequest = z.infer<typeof SandboxCommandRequestSchema>;
+
+export const FailureSignatureInputSchema = z.object({
+  expectedText: z.string().trim().min(3).max(100_000),
+  minimumSimilarity: z.number().min(0.5).max(1).default(0.85),
+  requireNonZeroExit: z.boolean().default(true),
+});
+export type FailureSignatureInput = z.infer<typeof FailureSignatureInputSchema>;
+
+export const StartReproductionSchema = z.object({
+  worktreeId: UuidSchema.optional(),
+  image: z.string().trim().min(1).max(512),
+  installCommands: z.array(SandboxCommandRequestSchema).max(5).default([]),
+  reproductionCommands: z.array(SandboxCommandRequestSchema).min(1).max(10),
+  failureSignature: FailureSignatureInputSchema,
+  repeatCount: z.number().int().min(1).max(3).default(2),
+  resourceLimits: SandboxResourceLimitOverridesSchema.optional(),
+  networkPolicy: SandboxNetworkPolicySchema.optional(),
+  artifactPaths: z.array(z.string().trim().min(1).max(512)).max(20).default([]),
+  policyOverrideReason: z.string().trim().min(20).max(2_000).optional(),
+});
+export type StartReproductionInput = z.infer<typeof StartReproductionSchema>;
+
+export const SandboxPolicyDecisionSchema = z.object({
+  allowed: z.boolean(),
+  policyVersion: z.string().min(1).max(100),
+  decisionId: UuidSchema,
+  reasons: z.array(z.string().min(1).max(1_000)).max(50),
+  normalizedCommands: z.array(SandboxCommandRequestSchema),
+  resourceLimits: SandboxResourceLimitsSchema,
+  networkPolicy: SandboxNetworkPolicySchema,
+  image: z.string().min(1).max(512),
+  imageDigestRequired: z.boolean(),
+  overrideRequired: z.boolean(),
+  evaluatedAt: z.string().datetime(),
+});
+export type SandboxPolicyDecision = z.infer<typeof SandboxPolicyDecisionSchema>;
+
+export const SandboxLogChunkSchema = z.object({
+  id: UuidSchema,
+  executionId: UuidSchema,
+  commandId: UuidSchema.nullable(),
+  sequence: z.number().int().positive(),
+  stream: z.enum(['stdout', 'stderr', 'system']),
+  content: z.string().max(128 * 1024),
+  byteSize: z.number().int().nonnegative(),
+  redacted: z.boolean(),
+  redactionCount: z.number().int().nonnegative(),
+  truncated: z.boolean(),
+  previousHash: z.string().length(64).nullable(),
+  chunkHash: z.string().length(64),
+  occurredAt: z.string().datetime(),
+});
+export type SandboxLogChunk = z.infer<typeof SandboxLogChunkSchema>;
+
+export const SandboxArtifactSchema = z.object({
+  id: UuidSchema,
+  executionId: UuidSchema,
+  path: z.string().min(1).max(512),
+  mediaType: z.string().min(1).max(255),
+  byteSize: z.number().int().nonnegative(),
+  digest: z.string().length(64),
+  retention: z.nativeEnum(SandboxArtifactRetention),
+  storageReference: z.string().max(2048).nullable(),
+  createdAt: z.string().datetime(),
+});
+export type SandboxArtifact = z.infer<typeof SandboxArtifactSchema>;
+
+export const SandboxCleanupProofSchema = z.object({
+  executionId: UuidSchema,
+  containerIds: z.array(z.string().min(1).max(128)).max(100),
+  volumeIds: z.array(z.string().min(1).max(128)).max(20),
+  networkIds: z.array(z.string().min(1).max(128)).max(20),
+  verifiedAbsent: z.boolean(),
+  attempts: z.number().int().positive(),
+  digest: z.string().length(64),
+  error: z.string().max(2_000).nullable(),
+  completedAt: z.string().datetime(),
+});
+export type SandboxCleanupProof = z.infer<typeof SandboxCleanupProofSchema>;
+
+export const FailureSignatureSchema = z.object({
+  normalized: z.string().min(1).max(100_000),
+  digest: z.string().length(64),
+  tokens: z.array(z.string().min(1).max(256)).max(10_000),
+});
+export type FailureSignature = z.infer<typeof FailureSignatureSchema>;
+
+export const FailureSignatureComparisonSchema = z.object({
+  matched: z.boolean(),
+  similarity: z.number().min(0).max(1),
+  expected: FailureSignatureSchema,
+  observed: FailureSignatureSchema,
+  rationale: z.string().min(1).max(2_000),
+});
+export type FailureSignatureComparison = z.infer<typeof FailureSignatureComparisonSchema>;
+
+export const SandboxCommandResultSchema = z.object({
+  id: UuidSchema,
+  sequence: z.number().int().positive(),
+  phase: z.nativeEnum(SandboxCommandPhase),
+  executable: z.string().min(1).max(128),
+  arguments: z.array(z.string().max(512)).max(64),
+  workingDirectory: z.string().min(1).max(512),
+  status: z.nativeEnum(SandboxCommandStatus),
+  exitCode: z.number().int().min(0).max(255).nullable(),
+  signal: z.string().max(64).nullable(),
+  durationMs: z.number().int().nonnegative(),
+  timedOut: z.boolean(),
+  oomKilled: z.boolean().default(false),
+  outputDigest: z.string().length(64),
+  startedAt: z.string().datetime(),
+  completedAt: z.string().datetime(),
+});
+export type SandboxCommandResult = z.infer<typeof SandboxCommandResultSchema>;
+
+export const ReproductionSchema = z.object({
+  id: UuidSchema,
+  organizationId: UuidSchema,
+  incidentId: UuidSchema,
+  worktreeId: UuidSchema,
+  executionId: UuidSchema,
+  status: z.nativeEnum(SandboxExecutionStatus),
+  result: z.nativeEnum(SandboxResult).nullable(),
+  policyDecision: SandboxPolicyDecisionSchema,
+  originalFailureSignature: FailureSignatureSchema,
+  observedFailureSignature: FailureSignatureSchema.nullable(),
+  signatureComparison: FailureSignatureComparisonSchema.nullable(),
+  environmentFingerprint: z.string().length(64).nullable(),
+  confidence: z.number().min(0).max(1).nullable(),
+  commands: z.array(SandboxCommandResultSchema),
+  artifacts: z.array(SandboxArtifactSchema),
+  cleanup: SandboxCleanupProofSchema.nullable(),
+  cancellationRequestedAt: z.string().datetime().nullable(),
+  startedAt: z.string().datetime().nullable(),
+  completedAt: z.string().datetime().nullable(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+export type Reproduction = z.infer<typeof ReproductionSchema>;
+
+export const ReproductionListQuerySchema = z.object({
+  cursor: z.string().min(1).max(512).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+  status: z.nativeEnum(SandboxExecutionStatus).optional(),
+  result: z.nativeEnum(SandboxResult).optional(),
+});
+export type ReproductionListQuery = z.infer<typeof ReproductionListQuerySchema>;
+
+export const SandboxExecutionJobSchema = z.object({
+  executionId: UuidSchema,
+  reproductionId: UuidSchema,
+  incidentId: UuidSchema,
+  organizationId: UuidSchema,
+  requestedBy: z.string().min(1).max(255),
+  requestId: z.string().min(1).max(128),
+  correlationId: z.string().min(1).max(128),
+  requestedAt: z.string().datetime(),
+  attempt: z.number().int().positive().default(1),
+});
+export type SandboxExecutionJob = z.infer<typeof SandboxExecutionJobSchema>;
+
+export const SANDBOX_EXECUTION_QUEUE = 'codeer-sandbox-execution';
+export const SANDBOX_EXECUTION_JOB = 'sandbox.execute';
+export const SANDBOX_REPRODUCTION_OUTBOX_TOPIC = 'sandbox.reproduction.requested';
+
+export const SandboxLogQuerySchema = z.object({
+  afterSequence: z.coerce.number().int().min(0).optional(),
+  limit: z.coerce.number().int().min(1).max(500).default(100),
+});
+export type SandboxLogQuery = z.infer<typeof SandboxLogQuerySchema>;

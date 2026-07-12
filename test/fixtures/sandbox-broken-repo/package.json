@@ -1,0 +1,9 @@
+{
+  "name": "codeer-sandbox-broken-fixture",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "reproduce": "node scripts/reproduce-failure.mjs"
+  }
+}

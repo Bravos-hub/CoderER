@@ -89,6 +89,17 @@ enum IncidentEventType {
   RECOVERY_APPROVED
   INCIDENT_FAILED
   INCIDENT_CANCELLED
+  REPRODUCTION_REQUESTED
+  SANDBOX_POLICY_APPROVED
+  SANDBOX_POLICY_BLOCKED
+  SANDBOX_PREPARING
+  REPRODUCTION_STARTED
+  FAILURE_REPRODUCED
+  FAILURE_NOT_REPRODUCED
+  REPRODUCTION_TIMED_OUT
+  REPRODUCTION_CANCELLED
+  SANDBOX_CLEANUP_COMPLETED
+  SANDBOX_CLEANUP_FAILED
 }
 
 enum EvidenceKind {
@@ -102,6 +113,11 @@ enum EvidenceKind {
   BUILD_RESULT
   USER_OBSERVATION
   HEALTH_SIGNAL
+  SANDBOX_POLICY
+  SANDBOX_LOG
+  SANDBOX_ARTIFACT
+  FAILURE_REPRODUCTION
+  SANDBOX_CLEANUP
 }
 
 enum EvidenceSource {
@@ -141,6 +157,58 @@ enum AuditOutcome {
   FAILURE
 }
 
+enum SandboxExecutionStatus {
+  REQUESTED
+  POLICY_CHECK
+  PREPARING
+  INSTALLING
+  REPRODUCING
+  COLLECTING
+  CLEANING
+  COMPLETED
+  POLICY_BLOCKED
+  CANCELLED
+  TIMED_OUT
+  INFRASTRUCTURE_FAILED
+  CLEANUP_FAILED
+}
+
+enum SandboxResult {
+  REPRODUCED
+  NOT_REPRODUCED
+  INCONCLUSIVE
+  POLICY_BLOCKED
+  INFRASTRUCTURE_FAILED
+}
+
+enum SandboxNetworkMode {
+  NONE
+  RESTRICTED_INSTALL
+}
+
+enum SandboxCommandPhase {
+  PREPARE
+  INSTALL
+  REPRODUCE
+  COLLECT
+}
+
+enum SandboxCommandStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  TIMED_OUT
+  CANCELLED
+  POLICY_BLOCKED
+}
+
+enum SandboxArtifactRetention {
+  EPHEMERAL
+  INCIDENT
+  LEGAL_HOLD
+}
+
 model Organization {
   id             String                     @id @default(uuid())
   slug           String                     @unique
@@ -153,6 +221,9 @@ model Organization {
   auditLogs      AuditLog[]
   outboxMessages OutboxMessage[]
   idempotency    IdempotencyRecord[]
+  sandboxExecutions SandboxExecution[]
+  reproductions  FailureReproduction[]
+  sandboxArtifacts SandboxArtifact[]
   createdAt      DateTime                   @default(now())
   updatedAt      DateTime                   @updatedAt
 }
@@ -221,6 +292,7 @@ model RepositoryWorktree {
   repository     Repository        @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
   intake         RepositoryIntake  @relation(fields: [intakeId], references: [id], onDelete: Cascade)
   sessions       RecoverySession[]
+  sandboxExecutions SandboxExecution[]
   createdAt      DateTime          @default(now())
   removedAt      DateTime?
 
@@ -254,6 +326,9 @@ model Incident {
   severityAssessments SeverityAssessment[]
   healthSnapshots     RepositoryHealthSnapshot[]
   auditLogs           AuditLog[]
+  sandboxExecutions   SandboxExecution[]
+  reproductions       FailureReproduction[]
+  sandboxArtifacts    SandboxArtifact[]
   reportedAt          DateTime
   acknowledgedAt      DateTime?
   resolvedAt          DateTime?
@@ -451,4 +526,175 @@ model IdempotencyRecord {
 
   @@unique([organizationId, scope, key])
   @@index([expiresAt])
+}
+
+
+model SandboxPolicySnapshot {
+  id                 String                 @id @default(uuid())
+  executionId        String                 @unique
+  policyVersion      String
+  decisionId         String                 @unique
+  allowed            Boolean
+  reasons            Json
+  image              String
+  imageDigestRequired Boolean
+  normalizedCommands Json
+  resourceLimits     Json
+  networkPolicy      Json
+  overrideRequired   Boolean                @default(false)
+  overrideReason     String?
+  approvedBy         String?
+  evaluatedAt        DateTime
+  execution          SandboxExecution       @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  createdAt          DateTime               @default(now())
+}
+
+model SandboxExecution {
+  id                      String                  @id @default(uuid())
+  organizationId          String
+  incidentId              String
+  worktreeId              String
+  status                  SandboxExecutionStatus  @default(REQUESTED)
+  result                  SandboxResult?
+  image                   String
+  environmentFingerprint  String?
+  leaseOwner              String?
+  leaseExpiresAt          DateTime?
+  heartbeatAt             DateTime?
+  cancellationRequestedAt DateTime?
+  startedAt               DateTime?
+  completedAt             DateTime?
+  errorCode               String?
+  errorMessage            String?
+  organization            Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  incident                Incident                @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  worktree                RepositoryWorktree      @relation(fields: [worktreeId], references: [id], onDelete: Restrict)
+  reproduction            FailureReproduction?
+  policySnapshot          SandboxPolicySnapshot?
+  commands                SandboxCommand[]
+  logs                    SandboxLogChunk[]
+  artifacts               SandboxArtifact[]
+  cleanupRecords          SandboxCleanupRecord[]
+  createdAt               DateTime                @default(now())
+  updatedAt               DateTime                @updatedAt
+
+  @@index([organizationId, incidentId, createdAt(sort: Desc)])
+  @@index([status, leaseExpiresAt])
+  @@index([worktreeId, createdAt(sort: Desc)])
+}
+
+model FailureReproduction {
+  id                       String             @id @default(uuid())
+  organizationId           String
+  incidentId               String
+  executionId              String             @unique
+  input                     Json
+  status                    SandboxExecutionStatus @default(REQUESTED)
+  result                    SandboxResult?
+  originalFailureSignature Json
+  observedFailureSignature Json?
+  signatureComparison      Json?
+  confidence               Float?
+  environmentFingerprint   String?
+  organization             Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  incident                 Incident           @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  execution                SandboxExecution   @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  createdAt                DateTime           @default(now())
+  updatedAt                DateTime           @updatedAt
+
+  @@index([organizationId, incidentId, createdAt(sort: Desc)])
+  @@index([status, createdAt])
+  @@index([result, createdAt])
+}
+
+model SandboxCommand {
+  id                String               @id
+  executionId       String
+  sequence          Int
+  phase             SandboxCommandPhase
+  executable        String
+  arguments         String[]
+  workingDirectory  String
+  environment       Json
+  networkMode       SandboxNetworkMode
+  timeoutMs         Int
+  expectedExitCodes Int[]
+  status            SandboxCommandStatus @default(PENDING)
+  exitCode          Int?
+  signal            String?
+  durationMs        Int?
+  timedOut          Boolean              @default(false)
+  oomKilled         Boolean              @default(false)
+  outputDigest      String?
+  startedAt         DateTime?
+  completedAt       DateTime?
+  execution         SandboxExecution     @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  logs              SandboxLogChunk[]
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  @@unique([executionId, sequence])
+  @@index([executionId, status, sequence])
+}
+
+model SandboxLogChunk {
+  id             String           @id
+  executionId    String
+  commandId      String?
+  sequence       Int
+  stream         String
+  content        String
+  byteSize       Int
+  redacted       Boolean          @default(false)
+  redactionCount Int              @default(0)
+  truncated      Boolean          @default(false)
+  previousHash   String?
+  chunkHash      String           @unique
+  occurredAt     DateTime
+  execution      SandboxExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  command        SandboxCommand?  @relation(fields: [commandId], references: [id], onDelete: SetNull)
+  createdAt      DateTime         @default(now())
+
+  @@unique([executionId, sequence])
+  @@index([executionId, occurredAt])
+  @@index([commandId, sequence])
+}
+
+model SandboxArtifact {
+  id               String                   @id
+  organizationId   String
+  incidentId       String
+  executionId      String
+  path             String
+  mediaType        String
+  byteSize         Int
+  digest           String
+  retention        SandboxArtifactRetention
+  storageReference String?
+  organization     Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  incident         Incident                 @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  execution        SandboxExecution         @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  createdAt        DateTime                 @default(now())
+
+  @@unique([executionId, path, digest])
+  @@index([organizationId, incidentId, createdAt(sort: Desc)])
+  @@index([executionId, createdAt])
+}
+
+model SandboxCleanupRecord {
+  id             String           @id @default(uuid())
+  executionId    String
+  containerIds   String[]
+  volumeIds      String[]
+  networkIds     String[]
+  verifiedAbsent Boolean
+  attempts       Int
+  digest         String
+  error          String?
+  completedAt    DateTime
+  execution      SandboxExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  createdAt      DateTime         @default(now())
+
+  @@unique([executionId, digest])
+  @@index([executionId, completedAt(sort: Desc)])
 }

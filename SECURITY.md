@@ -1,43 +1,74 @@
-# CodeER Security Policy
+# Security Policy
 
-Security is a release criterion for CodeER, not a post-launch feature. CodeER handles source code, repository metadata, installation credentials, command execution, build logs, patches and pull-request output. A weakness in any boundary can affect customer repositories, so suspected vulnerabilities must be handled privately and promptly.
+CodeER processes source code, build output, repository metadata and software-failure evidence. Treat all repository content, package scripts, logs, generated instructions and artifacts as hostile input.
 
 ## Reporting a vulnerability
 
-Do not open a public issue. Use the repository's **Security** tab and select **Report a vulnerability** to create a private security advisory:
+Do not open a public issue for a suspected vulnerability.
 
-`https://github.com/Bravos-hub/CoderER/security/advisories/new`
+Use GitHub private vulnerability reporting:
 
-Include the affected component, reproduction steps, impact, required privileges, logs with secrets removed, and any proposed mitigation. Do not include real customer source code or credentials.
+- `https://github.com/Bravos-hub/CoderER/security/advisories/new`
+
+Include the affected component, impact, reproduction steps, expected and observed behavior, environment, relevant logs after removing secrets, and any known mitigation. Do not include real access tokens, private keys, cookies, customer source code or personal data.
 
 ## Response targets
 
-| Severity | Initial acknowledgement |   Triage target |          Remediation target |
-| -------- | ----------------------: | --------------: | --------------------------: |
-| Critical |                24 hours |        48 hours | Immediate emergency release |
-| High     |                48 hours | 3 business days |                      7 days |
-| Medium   |         3 business days |          7 days |                     30 days |
-| Low      |         5 business days |         14 days |             Planned release |
+| Severity | Initial acknowledgement |    Triage target |
+| -------- | ----------------------: | ---------------: |
+| Critical |                 4 hours |         24 hours |
+| High     |          1 business day |  2 business days |
+| Medium   |         3 business days |  5 business days |
+| Low      |         5 business days | 10 business days |
 
-Targets may change after impact analysis, but risk acceptance must be documented.
+Targets are operational goals, not a warranty or service-level agreement.
 
 ## Supported versions
 
-During Build Week, only the latest `main` branch and current tagged release are supported. Commercial releases will define explicit support windows and security patch channels.
+Security fixes are applied to the current `main` branch and current supported deployment release. Pre-release branches and local development environments are not production support channels.
 
-## Security guarantees
+## Security guarantees implemented in the repository
 
-CodeER must never:
+- Production configuration fails closed when authentication, tenant context, signed context or required sandbox controls are missing.
+- Browser code never receives internal API keys, GitHub App private keys, database credentials, Redis credentials or sandbox-engine credentials.
+- Organization-owned data is scoped in application queries and protected with forced PostgreSQL row-level security.
+- API and worker database identities are non-superuser and `NOBYPASSRLS`; worker bypass is an explicit transaction-local capability.
+- Incident events, evidence, audit records, sandbox policy snapshots, commands, log chunks, artifacts and cleanup records are append-only or mutation-restricted where appropriate.
+- Security-sensitive timeline data is integrity-hashed; sandbox logs are redacted before persistence and linked by monotonic sequence and hash chain.
+- Repository and sandbox paths are canonicalized and confined to approved roots; traversal and symlink escapes are rejected.
+- Git and process execution use argument arrays with `shell: false`; ambient Git configuration, hooks and prompts are disabled.
+- Sandbox command policy is deny-by-default and rejects shell control syntax, unsupported binaries, secret-bearing environment variables, unsafe working directories and excessive resource requests.
+- Production sandbox execution requires a dedicated remote Docker boundary, digest-pinned execution and helper images, approved registries and quota-aware workspaces.
+- Untrusted repository containers run non-root with read-only root filesystems, dropped Linux capabilities, `no-new-privileges`, bounded CPU, memory, PID, time, output, log, artifact and workspace limits.
+- Sandboxes receive no Docker socket, host namespace, privileged mode, arbitrary device, application credentials or inherited host environment.
+- Reproduction is networkless. Dependency-installation egress requires an attested restricted network whose destination-policy digest matches the approved registries/domains and whose gateway blocks metadata, private, host and control-plane destinations.
+- Cancellation, timeout, worker failure and stale leases all trigger idempotent cleanup; every execution write is lease-fenced and cleanup corrections append immutable proof rather than overwriting failed evidence.
+- CI includes linting, type checking, tests, build verification, secret scanning, dependency auditing, CodeQL, dependency review, SBOM generation, Docker security smoke tests and container scanning.
 
-- push directly to a protected default branch;
-- automatically merge a generated repair;
-- place credentials in Git command arguments or remote URLs;
-- expose credentials, stack traces or private filesystem paths in user-facing errors;
-- execute repository code outside an isolated sandbox;
-- trust agent-generated commands without policy validation;
-- accept repository paths that escape the configured workspace root;
-- treat an AI-generated patch as verified recovery.
+## Production sandbox restrictions
 
-## Required repository settings
+The following configurations are prohibited for enterprise deployment:
 
-Before production, enable branch protection, required pull-request reviews, required CI and CodeQL checks, secret scanning, push protection, Dependabot alerts, private vulnerability reporting, signed release artifacts and restricted GitHub App permissions.
+- mounting `/var/run/docker.sock` or another container-runtime socket into the CodeER worker;
+- running repository containers with `--privileged`, host PID, host IPC, host network or added Linux capabilities;
+- mutable sandbox image tags without a verified digest;
+- unrestricted internet access or an ordinary bridge network represented as an egress allowlist;
+- forwarding GitHub, OpenAI, cloud, database, Redis, CI or CodeER service credentials into a sandbox;
+- executing repository commands directly on an API, worker or operator host;
+- using a PostgreSQL superuser or `BYPASSRLS` role for application traffic;
+- treating successful process exit as proof of cleanup;
+- accepting artifacts without path confinement, size limits, type metadata and integrity digests.
+
+See [Sandbox Threat Model](docs/security/SANDBOX_THREAT_MODEL.md) and [Sandbox Operations Runbook](docs/operations/SANDBOX_RUNBOOK.md).
+
+## Required repository and deployment settings
+
+- Protect `main` and require pull-request review.
+- Require CI, security and sandbox-profile checks before merge.
+- Enable secret scanning, push protection, Dependabot and code scanning where the GitHub plan supports them.
+- Restrict GitHub App permissions to repository metadata and content operations required by the active workflow.
+- Store runtime secrets in a managed secret system, not `.env` files in production.
+- Use separate migration, API, worker and sandbox-engine identities.
+- Restrict sandbox-engine network access to the worker control plane and approved registries or mirrors.
+- Export audit and cleanup failures to centralized monitoring with paging for orphaned-resource conditions.
+- Regularly test database restore, role boundaries, sandbox reconciliation, image revocation and credential rotation.

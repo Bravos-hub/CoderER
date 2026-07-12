@@ -12,6 +12,7 @@ COPY packages/github/package.json packages/github/package.json
 COPY packages/incidents/package.json packages/incidents/package.json
 COPY packages/logger/package.json packages/logger/package.json
 COPY packages/repository/package.json packages/repository/package.json
+COPY packages/sandbox/package.json packages/sandbox/package.json
 COPY packages/security/package.json packages/security/package.json
 RUN npm ci --ignore-scripts
 COPY tsconfig.base.json ./
@@ -23,10 +24,14 @@ COPY packages/github packages/github
 COPY packages/incidents packages/incidents
 COPY packages/logger packages/logger
 COPY packages/repository packages/repository
+COPY packages/sandbox packages/sandbox
+COPY packages/security packages/security
 RUN npm run build -w @codeer/contracts \
   && npm run build -w @codeer/config \
   && npm run build -w @codeer/logger \
   && npm run build -w @codeer/incidents \
+  && npm run build -w @codeer/security \
+  && npm run build -w @codeer/sandbox \
   && npm run build -w @codeer/database \
   && npm run build -w @codeer/github \
   && npm run build -w @codeer/repository \
@@ -37,7 +42,7 @@ FROM node:24-bookworm-slim AS runtime
 ENV NODE_ENV=production
 WORKDIR /workspace
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends git ca-certificates \
+  && apt-get install -y --no-install-recommends git ca-certificates docker.io \
   && rm -rf /var/lib/apt/lists/* \
   && groupmod -g 10001 node \
   && usermod -u 10001 -g 10001 node \
@@ -54,5 +59,7 @@ COPY --from=build --chown=node:node /workspace/packages/github ./packages/github
 COPY --from=build --chown=node:node /workspace/packages/incidents ./packages/incidents
 COPY --from=build --chown=node:node /workspace/packages/logger ./packages/logger
 COPY --from=build --chown=node:node /workspace/packages/repository ./packages/repository
+COPY --from=build --chown=node:node /workspace/packages/sandbox ./packages/sandbox
+COPY --from=build --chown=node:node /workspace/packages/security ./packages/security
 USER node
 CMD ["node", "apps/worker/dist/index.js"]

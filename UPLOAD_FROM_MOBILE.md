@@ -1,61 +1,45 @@
-# Upload CodeER from a Mobile Phone
+# Apply a CodeER Sprint Package from GitHub Codespaces
 
-## Preferred path: GitHub Codespaces
+The preferred workflow is a normal computer checkout. This Codespaces path remains available when working from a phone or browser.
 
-1. Merge the documentation pull request first if it is still open.
-2. Open `https://github.com/Bravos-hub/CoderER` in Safari or Chrome.
-3. Select **Code** → **Codespaces** → **Create codespace**.
-4. Download the CodeER ZIP package from ChatGPT into the phone's Files app.
-5. In the Codespaces file explorer, upload the ZIP to `/workspaces`.
-6. Open the terminal and locate the uploaded file:
+1. Open `Bravos-hub/CoderER` in a GitHub Codespace.
+2. Upload the Sprint ZIP to `/workspaces` rather than uploading an extracted folder.
+3. In the terminal, extract it outside the repository:
 
 ```bash
 cd /workspaces
-ls -lah
+unzip codeer-sprint4-hardened-sandbox-v0.3.0.zip -d codeer-sprint4-upload
 ```
 
-7. Extract it into a temporary directory:
-
-```bash
-unzip codeer-secure-workspace-v0.1.0.zip -d codeer-upload
-```
-
-8. Copy the extracted files into the repository without copying generated dependencies:
+4. Prepare the existing Sprint 4 branch:
 
 ```bash
 cd /workspaces/CoderER
-cp -a /workspaces/codeer-upload/codeer-secure-workspace-v0.1.0/. .
+git checkout main
+git pull --ff-only origin main
+git checkout agent/sprint-4-hardened-sandbox
+git merge --ff-only main
 ```
 
-9. Install and validate:
+5. Synchronize the package into the repository:
 
 ```bash
-npm ci --ignore-scripts --no-audit --no-fund
-npm run db:generate
-npm run format:check
-npm run lint
-npm run typecheck
-npm run test
-npm run build
-npm run security:secrets
-npm audit --omit=dev --audit-level=high
+rsync -a --delete \
+  --exclude='.git' \
+  --exclude='node_modules' \
+  --exclude='dist' \
+  --exclude='.next' \
+  --exclude='artifacts' \
+  --exclude='.env' \
+  /workspaces/codeer-sprint4-upload/codeer-sprint4-hardened-sandbox-v0.3.0/ \
+  /workspaces/CoderER/
 ```
 
-10. Commit on a dedicated branch:
+6. Follow `APPLY_SPRINT_4.md` for validation, commit and pull-request steps.
 
-```bash
-git checkout -b feat/secure-workspace-and-repository-intake
-git add .
-git status
-git commit -m "Initialize secure CodeER workspace and repository intake"
-git push -u origin feat/secure-workspace-and-repository-intake
-```
+## Security reminders
 
-11. Open a pull request and review it in GitHub Mobile.
-
-## Important
-
-- Do not upload `.env`, private keys, tokens or credentials.
-- Do not commit `node_modules`, `.next`, `dist`, `artifacts`, worktrees or sandbox data.
-- Keep database and Redis forwarded ports private in Codespaces.
-- Do not merge until CI, CodeQL and security checks pass.
+- Keep forwarded PostgreSQL, Redis, API and sandbox-engine ports private.
+- Do not upload `.env`, tokens, private keys, TLS client certificates or customer repositories.
+- Do not mount a Codespaces Docker socket into an untrusted sandbox as a production architecture.
+- Do not close Issue #15 until the Docker and PostgreSQL gates pass.

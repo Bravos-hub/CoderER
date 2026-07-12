@@ -44,7 +44,10 @@ jobs:
       DATABASE_ADMIN_URL: postgresql://codeer:codeer-ci-admin-password@localhost:5432/codeer
       DATABASE_RUNTIME_USER: codeer_app
       DATABASE_RUNTIME_PASSWORD: codeer-ci-runtime-password
+      DATABASE_WORKER_USER: codeer_worker
+      DATABASE_WORKER_PASSWORD: codeer-ci-worker-password
       DATABASE_URL: postgresql://codeer_app:codeer-ci-runtime-password@localhost:5432/codeer
+      DATABASE_WORKER_URL: postgresql://codeer_worker:codeer-ci-worker-password@localhost:5432/codeer
       REDIS_URL: redis://localhost:6379
     steps:
       - uses: actions/checkout@v4
@@ -59,9 +62,11 @@ jobs:
       - run: npm run typecheck
       - run: npm run test
       - run: npm run build
-      - run: npm run db:apply:sprint3
+      - run: npm run db:migrate:all
       - run: npm run db:provision:runtime
+      - run: npm run db:verify:roles
       - run: npm run test:integration:incident
+      - run: npm run test:integration:sandbox:persistence
       - run: npm run security:check
 
   container-build:

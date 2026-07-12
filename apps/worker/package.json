@@ -12,10 +12,12 @@
   "dependencies": {
     "@codeer/config": "0.1.0",
     "@codeer/contracts": "0.1.0",
+    "@codeer/database": "0.1.0",
     "@codeer/github": "0.1.0",
     "@codeer/logger": "0.1.0",
     "@codeer/repository": "0.1.0",
-    "bullmq": "5.80.2",
-    "@codeer/database": "0.1.0"
+    "@codeer/sandbox": "0.1.0",
+    "@codeer/security": "0.1.0",
+    "bullmq": "5.80.2"
   }
 }

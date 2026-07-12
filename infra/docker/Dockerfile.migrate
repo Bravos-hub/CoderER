@@ -12,6 +12,7 @@ COPY packages/github/package.json packages/github/package.json
 COPY packages/incidents/package.json packages/incidents/package.json
 COPY packages/logger/package.json packages/logger/package.json
 COPY packages/repository/package.json packages/repository/package.json
+COPY packages/sandbox/package.json packages/sandbox/package.json
 COPY packages/security/package.json packages/security/package.json
 RUN npm ci --ignore-scripts --omit=dev
 
@@ -20,8 +21,8 @@ ENV NODE_ENV=production
 WORKDIR /workspace
 RUN groupmod -g 10001 node && usermod -u 10001 -g 10001 node
 COPY --from=dependencies --chown=node:node /workspace/node_modules ./node_modules
-COPY --chown=node:node scripts/apply-sprint3-migration.mjs scripts/apply-sprint3-migration.mjs
+COPY --chown=node:node scripts/apply-codeer-migrations.mjs scripts/apply-codeer-migrations.mjs
 COPY --chown=node:node scripts/provision-database-runtime-role.mjs scripts/provision-database-runtime-role.mjs
 COPY --chown=node:node packages/database/prisma/migrations packages/database/prisma/migrations
 USER node
-CMD ["sh", "-c", "node scripts/apply-sprint3-migration.mjs && node scripts/provision-database-runtime-role.mjs"]
+CMD ["sh", "-c", "node scripts/apply-codeer-migrations.mjs && node scripts/provision-database-runtime-role.mjs"]

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import type { IncidentDetail } from '@codeer/contracts';
+import { ReproductionPanel } from './reproduction-panel';
 
 export function IncidentDetailView({ incidentId }: { incidentId: string }) {
   const [detail, setDetail] = useState<IncidentDetail | null>(null);
@@ -172,6 +173,7 @@ export function IncidentDetailView({ incidentId }: { incidentId: string }) {
           </article>
         </div>
       </section>
+      <ReproductionPanel incidentId={incidentId} />
     </>
   );
 }

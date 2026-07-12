@@ -1,37 +1,43 @@
 {
   "project": "CodeER",
-  "version": "0.2.0-sprint3",
+  "version": "0.3.0-sprint4",
   "deliveryDate": "2026-07-12",
   "scope": [
     "Sprint 1 secure workspace foundation",
     "Sprint 2 controlled repository intake",
-    "Sprint 3 enterprise incident engine"
+    "Sprint 3 enterprise incident engine",
+    "Sprint 4 hardened sandbox and deterministic failure reproduction"
   ],
   "validation": {
-    "workspaceStructure": "passed",
+    "workspaceStructure": "passed (13 required paths)",
     "format": "passed",
     "lint": "passed",
-    "typecheck": "passed across 11 workspaces",
-    "unitTests": "31 passed in 7 test files",
-    "sharedPackageBuilds": "passed",
+    "typecheck": "passed across 12 workspaces",
+    "unitTests": "58 passed in 9 test files",
+    "sharedPackageBuilds": "passed across 9 packages",
     "apiBuild": "passed",
     "workerBuild": "passed",
     "nextProductionBuild": "passed",
+    "scriptSyntax": "passed for all repository MJS scripts and the deterministic fixture",
+    "yamlParsing": "passed for all GitHub Actions workflows and docker-compose.yml",
     "secretPatternScan": "passed",
     "dependencyAudit": {
       "critical": 0,
       "high": 0,
       "moderate": 5,
       "low": 0,
-      "policy": "CI fails at high or critical severity; moderate transitive findings are tracked"
+      "policy": "release gate fails on high or critical severity; current moderate findings are upstream transitive dependencies and remain tracked"
     },
-    "migrationSyntax": "passed against embedded PostgreSQL compatibility runtime after omitting unavailable pgcrypto extension bootstrap",
-    "databaseIntegration": "configured in GitHub Actions with PostgreSQL 17; not executed locally because PostgreSQL and Docker are unavailable",
-    "prismaSchemaValidation": "not executed because the isolated environment could not resolve Prisma binary downloads",
     "sbom": "CycloneDX regenerated",
-    "dockerImageBuild": "not executed because Docker is unavailable in the build environment",
-    "databaseRoleSeparation": "runtime role provisioning implemented; API and worker use a non-superuser NOBYPASSRLS role in CI and Compose",
-    "containerBuilds": "configured as a four-image GitHub Actions matrix; not executed locally because Docker is unavailable"
+    "prismaSchemaValidation": "passed via npm run db:generate and raw SQL migrations applied with npm run db:migrate:all",
+    "databaseIntegration": "incident, role-boundary, sandbox-persistence and sandbox-docker smoke suites passed locally against PostgreSQL 17 and Redis 8",
+    "dockerSecurityProfile": "deterministic sandbox smoke passed locally against Docker Desktop 4.80.0; orphan check, non-root worker-image check and high/critical Trivy gate are implemented in CI",
+    "containerBuilds": "Dockerfiles and workflow gates are configured; local image builds were not possible in this environment",
+    "remoteExecutionBoundary": "production requires a remote authenticated Docker endpoint, rejects local socket execution, transfers source through the Docker client protocol without host bind mounts, and records execution/helper image identities",
+    "restrictedEgressAttestation": "restricted install networking requires an egress-control label and a destination-policy digest matching the approved registry/domain policy",
+    "leaseFencing": "all execution-side database mutations require the current unexpired lease owner; duplicate active claims and stale writers are covered by the persistence smoke suite",
+    "cleanupSafety": "unit-tested for normal completion, timeout, cancellation, control-plane failure, persistence failure and OOM classification; append-only corrective cleanup proofs and stale-execution reconciliation are implemented",
+    "resourceSafety": "operator limits are ceilings, unsafe stale-resource thresholds are rejected, and source/workspace/output/artifact budgets are bounded"
   },
-  "enterpriseGate": "closed pending workforce OIDC and SCIM, external policy enforcement, KMS-backed secrets and encryption, hardened per-session execution sandboxes, evidence object storage, regional resilience, load and penetration testing, and formal operational readiness review"
+  "enterpriseGate": "closed pending managed remote sandbox infrastructure, mandatory access-control profiles, registry admission, enforced egress gateway, KMS-backed secrets, OIDC and SCIM, evidence object storage, regional resilience, load and container-escape testing, penetration testing and formal operational readiness review"
 }

@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import {
   ActorRole,
   IncidentPermission,
@@ -40,6 +40,9 @@ const rolePermissions: Readonly<Record<ActorRole, readonly CodeerPermission[]>> 
     IncidentPermission.READ_AUDIT,
     IncidentPermission.OVERRIDE_SEVERITY,
     IncidentPermission.MANAGE_RESTRICTED_EVIDENCE,
+    IncidentPermission.REQUEST_REPRODUCTION,
+    IncidentPermission.READ_REPRODUCTION,
+    IncidentPermission.CANCEL_REPRODUCTION,
     RepositoryPermission.READ,
   ],
   [ActorRole.RESPONDER]: [
@@ -47,9 +50,15 @@ const rolePermissions: Readonly<Record<ActorRole, readonly CodeerPermission[]>> 
     IncidentPermission.CREATE,
     IncidentPermission.ADD_EVIDENCE,
     IncidentPermission.REQUEST_TRIAGE,
+    IncidentPermission.REQUEST_REPRODUCTION,
+    IncidentPermission.READ_REPRODUCTION,
     RepositoryPermission.READ,
   ],
-  [ActorRole.VIEWER]: [IncidentPermission.READ, RepositoryPermission.READ],
+  [ActorRole.VIEWER]: [
+    IncidentPermission.READ,
+    IncidentPermission.READ_REPRODUCTION,
+    RepositoryPermission.READ,
+  ],
   [ActorRole.SERVICE]: allPermissions,
 };
 
@@ -147,4 +156,68 @@ export function assertRepositoryPermission(
   permission: RepositoryPermission,
 ): void {
   assertCodeerPermission(roles, permission);
+}
+
+const SECRET_KEY_PATTERN =
+  /(?:authorization|cookie|set-cookie|token|secret|password|passwd|private[_-]?key|api[_-]?key|client[_-]?secret|access[_-]?key)/i;
+const SECRET_VALUE_PATTERNS: readonly RegExp[] = [
+  /\bgh[pousr]_[A-Za-z0-9]{20,}\b/g,
+  /\bgithub_pat_[A-Za-z0-9_]{20,}\b/g,
+  /\bsk-[A-Za-z0-9_-]{20,}\b/g,
+  /\bAKIA[0-9A-Z]{16}\b/g,
+  /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g,
+  /\bBearer\s+[A-Za-z0-9._~+/-]+=*\b/gi,
+  /(?:password|passwd|token|secret|api[_-]?key)\s*[=:]\s*[^\s,;]+/gi,
+];
+
+export interface SecretRedactionResult<T> {
+  value: T;
+  redacted: boolean;
+  count: number;
+}
+
+export function sha256Hex(value: string | Buffer): string {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+export function redactSecretsFromText(input: string): SecretRedactionResult<string> {
+  let value = input;
+  let count = 0;
+  for (const pattern of SECRET_VALUE_PATTERNS) {
+    value = value.replace(pattern, () => {
+      count += 1;
+      return '[REDACTED]';
+    });
+  }
+  return { value, redacted: count > 0, count };
+}
+
+export function redactSecretsFromValue<T>(input: T): SecretRedactionResult<T> {
+  let count = 0;
+  const visit = (value: unknown, key?: string): unknown => {
+    if (key && SECRET_KEY_PATTERN.test(key)) {
+      count += 1;
+      return '[REDACTED]';
+    }
+    if (typeof value === 'string') {
+      const redacted = redactSecretsFromText(value);
+      count += redacted.count;
+      return redacted.value;
+    }
+    if (Array.isArray(value)) return value.map((entry) => visit(entry));
+    if (value && typeof value === 'object') {
+      return Object.fromEntries(
+        Object.entries(value as Record<string, unknown>).map(([entryKey, entryValue]) => [
+          entryKey,
+          visit(entryValue, entryKey),
+        ]),
+      );
+    }
+    return value;
+  };
+  return { value: visit(input) as T, redacted: count > 0, count };
+}
+
+export function containsCredentialMaterial(value: unknown): boolean {
+  return redactSecretsFromValue(value).redacted;
 }

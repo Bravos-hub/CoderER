@@ -3,7 +3,7 @@
 > **Emergency response for broken software.**  
 > From failing build to verified recovery.
 
-CodeER is an evidence-driven AI software emergency-response platform for engineering organizations that need to investigate, contain, repair, verify and review software failures without surrendering human control.
+CodeER is an evidence-driven AI software emergency-response platform for engineering organizations that need to investigate, contain, reproduce, repair, verify and review software failures without surrendering human control.
 
 CodeER is being designed as a long-lived enterprise product, not as a disposable hackathon prototype. The Build Week submission is one delivery milestone inside a broader commercial architecture.
 
@@ -13,12 +13,13 @@ CodeER is being designed as a long-lived enterprise product, not as a disposable
 2. **Isolation before modification** - perform repairs in a branch, worktree and sandbox.
 3. **Verification before approval** - rerun the original failure, builds, tests and critical journeys.
 4. **Human control before merge** - keep every patch reviewable and never auto-merge.
-5. **Security before convenience** - treat repositories, logs, model output, commands and queue data as untrusted.
+5. **Security before convenience** - treat repositories, logs, model output, commands and queue data as hostile input.
 6. **Tenant isolation by default** - organization data is scoped at the application and database layers.
 7. **Auditability over hidden automation** - every security-sensitive and incident-changing action must be attributable.
+8. **Cleanup is part of correctness** - an execution is not complete until its resources are independently proven absent.
 
 ```text
-ADMIT -> TRIAGE -> DIAGNOSE -> RECOVER -> VERIFY -> REVIEW
+ADMIT -> TRIAGE -> REPRODUCE -> DIAGNOSE -> RECOVER -> VERIFY -> REVIEW
 ```
 
 ## Current implementation
@@ -61,36 +62,57 @@ ADMIT -> TRIAGE -> DIAGNOSE -> RECOVER -> VERIFY -> REVIEW
 - command-centre incident list, creation flow and evidence timeline;
 - integration smoke coverage for idempotency, row-level security, cross-tenant denial, evidence redaction, outbox delivery, triage and event-chain integrity.
 
+### Sprint 4 - hardened sandbox and deterministic failure reproduction
+
+- provider-neutral sandbox domain and a Docker execution provider behind an explicit trust boundary;
+- deny-by-default executable, argument, working-directory, environment and network policy evaluation;
+- non-root execution, read-only root filesystem, dropped capabilities, `no-new-privileges`, PID/memory/CPU/tmp limits and no privileged/host namespace modes;
+- production requirement for digest-pinned images, approved registries, remote TLS/SSH Docker and quota-aware workspaces;
+- no Docker socket, GitHub token, OpenAI key, database credential, Redis credential or inherited host environment inside repository containers;
+- networkless reproduction and separately governed restricted installation networking;
+- lockfile-aware package-manager commands, bounded command count, timeout, output, log and artifact limits;
+- deterministic failure-signature extraction, repeated-run consistency checking and explicit reproduced/not-reproduced/inconclusive classification;
+- ordered, redacted and SHA-256 hash-chained stdout/stderr chunks with truncation evidence;
+- bounded, path-confined, typed and integrity-hashed artifact manifests;
+- organization-scoped execution, policy, command, log, artifact, reproduction and cleanup persistence protected by PostgreSQL RLS;
+- transactional outbox dispatch, deterministic BullMQ jobs, worker leases, heartbeats, cancellation, timeout propagation and fail-closed control-plane handling;
+- idempotent cleanup, orphan reconciliation, lease-fenced writes and append-only cleanup-proof history in every terminal result;
+- incident command-centre reproduction workflow with policy preview, live state, redacted logs, failure comparison, artifacts and cleanup status;
+- Docker security-profile, database-boundary and deterministic reproduction smoke suites for CI and dedicated runners.
+
 ## Workspace
 
 ```text
 apps/
   web/          Next.js command centre and same-origin BFF
-  api/          NestJS orchestration and incident API
-  worker/       Repository-intake, triage and outbox workers
+  api/          NestJS orchestration, incident and reproduction APIs
+  worker/       Intake, triage, outbox and sandbox-execution workers
 packages/
   config/       Fail-closed environment validation
   contracts/    Shared Zod schemas and domain contracts
-  database/     PostgreSQL persistence, migrations and tenant boundary
+  database/     PostgreSQL persistence, migrations, RLS and leases
   github/       GitHub authentication and bounded metadata access
   incidents/    Severity, health, state-machine and integrity policies
   logger/       Structured redacted logging
   repository/   Controlled Git clone and worktree operations
-  security/     Signed context and authorization policies
-infra/docker/   Hardened application container definitions
+  sandbox/      Policy engine, signatures, logs, provider and orchestrator
+  security/     Signed context, authorization, hashing and redaction
+infra/docker/   Hardened application and migration container definitions
+test/fixtures/  Deterministic broken repositories for sandbox validation
 docs/           Product, architecture, data, security, operations and ADRs
 ```
 
 ## Local development
 
-Requirements: Node.js 24 LTS, npm 10 or newer, Git and Docker.
+Requirements: Node.js 24 LTS, npm 10 or newer, Git, Docker and Docker Compose.
 
 ```bash
 cp .env.example .env
 npm ci --ignore-scripts --no-audit --no-fund
 npm run infra:up
-npm run db:apply:sprint3
+npm run db:migrate:all
 npm run db:provision:runtime
+npm run db:verify:roles
 npm run dev
 ```
 
@@ -101,7 +123,7 @@ Open:
 - API liveness: `http://localhost:4100/api/v1/health`
 - API readiness: `http://localhost:4100/api/v1/health/ready`
 
-Run quality, integration and security gates:
+Run quality and security gates:
 
 ```bash
 npm run workspace:check
@@ -109,18 +131,28 @@ npm run format:check
 npm run lint
 npm run typecheck
 npm run test
-npm run build
+NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 npm run build
 npm run security:check
 npm run security:sbom
 ```
 
-With PostgreSQL available:
+Run PostgreSQL integration gates:
 
 ```bash
-npm run db:apply:sprint3
+npm run db:migrate:all
 npm run db:provision:runtime
+npm run db:verify:roles
 npm run test:integration:incident
+npm run test:integration:sandbox:persistence
 ```
+
+Run the real Docker execution-boundary smoke test from a trusted operator host:
+
+```bash
+npm run test:integration:sandbox:docker
+```
+
+The Docker smoke fixture intentionally fails in a repeatable way. The test verifies isolation flags, secret redaction, ordered logs, matching failure signatures, artifact digests and absence of managed containers and volumes after cleanup.
 
 ## Production trust model
 
@@ -133,18 +165,46 @@ CODEER_API_KEY=<at-least-32-random-characters>
 CORS_ALLOWED_ORIGINS=https://codeer.example.com
 API_REQUIRE_TENANT_CONTEXT=true
 API_REQUIRE_SIGNED_CONTEXT=true
-API_REQUIRE_IDEMPOTENCY_KEY=true
+REQUIRE_IDEMPOTENCY_KEYS=true
 REQUEST_CONTEXT_SIGNING_SECRET=<at-least-32-random-characters>
 REQUEST_CONTEXT_SIGNING_SECRET_PREVIOUS=<optional-previous-key-during-rotation>
 CODEER_API_URL_INTERNAL=http://api:4100/api/v1
 CODEER_INTERNAL_API_KEY=<same-internal-key>
 CODEER_ORGANIZATION_ID=<organization-uuid>
 CODEER_SERVICE_ACTOR_ID=codeer-web-bff
+
+SANDBOX_DEFAULT_IMAGE=registry.example.com/codeer/node-runtime@sha256:<digest>
+SANDBOX_HELPER_IMAGE=registry.example.com/codeer/sandbox-helper@sha256:<digest>
+SANDBOX_APPROVED_REGISTRIES=registry.example.com
+SANDBOX_DOCKER_HOST=tcp://sandbox-engine.internal:2376
+SANDBOX_DOCKER_TLS_VERIFY=true
+SANDBOX_DOCKER_CERT_PATH=/run/secrets/sandbox-docker-client
+SANDBOX_WORKSPACE_VOLUME_DRIVER=<quota-aware-driver>
+SANDBOX_WORKSPACE_VOLUME_SIZE_OPTION=size
+SANDBOX_INSTALL_NETWORK=<pre-provisioned-restricted-egress-network>
+SANDBOX_INSTALL_ALLOWED_REGISTRIES=registry.npmjs.org
+SANDBOX_INSTALL_ALLOWED_DOMAINS=registry.npmjs.org
+SANDBOX_EXECUTION_TIMEOUT_MS=2700000
+SANDBOX_EXECUTION_LEASE_MS=60000
+SANDBOX_STALE_AFTER_MS=3600000
 ```
 
-The browser communicates with same-origin Next.js route handlers. The BFF signs and forwards trusted context server-side. Services verify the signature and freshness before authorizing the requested capability. PostgreSQL row-level security remains an independent tenant boundary. Runtime services connect through a dedicated non-superuser, non-BYPASSRLS database role; schema migration uses a separate administrative connection.
+The browser communicates with same-origin Next.js route handlers. The BFF signs and forwards trusted context server-side. Services verify signature and freshness before authorizing the requested capability. PostgreSQL row-level security remains an independent tenant boundary. API and worker services use separate non-superuser, non-BYPASSRLS database identities; the worker receives only an explicit transaction-local capability for cross-tenant queue work.
+
+Untrusted repository commands do not execute on the API or worker host. The worker controls a dedicated remote sandbox engine over mutually authenticated transport. Production rejects the local Unix Docker socket, mutable image tags, empty registry policy and unbounded workspace storage. Reproduction uses no network. Installation networking is optional, separate and must be enforced by infrastructure egress controls; the worker requires an egress-control attestation label and exact destination-policy digest, and an ordinary Docker bridge is not sufficient for enterprise approval.
 
 The API key and HMAC identity bridge are transitional controls. Enterprise deployments will replace the human identity path with OIDC, short-lived service credentials and policy-driven authorization while preserving the same application permission model.
+
+## Enterprise sandbox documentation
+
+- [Sprint 4 Hardened Sandbox Architecture](docs/architecture/SPRINT_4_HARDENED_SANDBOX.md)
+- [Reproductions API](docs/api/REPRODUCTIONS_API.md)
+- [Sandbox Data Model](docs/data/SANDBOX_DATA_MODEL.md)
+- [Sandbox Threat Model](docs/security/SANDBOX_THREAT_MODEL.md)
+- [Sandbox Operations Runbook](docs/operations/SANDBOX_RUNBOOK.md)
+- [ADR 0004: Remote Sandbox Execution Boundary](docs/adr/0004-remote-sandbox-execution-boundary.md)
+- [ADR 0005: Networkless Reproduction and Restricted Install](docs/adr/0005-networkless-reproduction-and-restricted-install.md)
+- [ADR 0006: Cleanup Proof Is Part of the Result](docs/adr/0006-cleanup-proof-is-part-of-result.md)
 
 ## Enterprise incident documentation
 
@@ -170,20 +230,20 @@ The API key and HMAC identity bridge are transitional controls. Enterprise deplo
 
 ## Security and enterprise-readiness status
 
-Sprint 3 establishes strong application and data-plane foundations, but CodeER is not yet approved for unrestricted production access to sensitive enterprise repositories.
+Sprint 4 establishes the first executable trust boundary, but CodeER is not yet approved for unrestricted production access to sensitive enterprise repositories.
 
 Remaining enterprise gates include:
 
 - workforce OIDC, SCIM and organization membership lifecycle;
-- external policy engine and separation-of-duty rules;
-- KMS-backed signing and envelope encryption;
-- encrypted object storage for large evidence with malware scanning and retention enforcement;
-- hardened per-session execution sandboxes and network egress policy;
+- external policy engine, approval workflows and separation-of-duty rules;
+- KMS-backed signing, envelope encryption and managed secret delivery;
+- managed remote sandbox infrastructure with mandatory access controls, hardened kernels, image admission, egress enforcement and per-tenant capacity controls;
+- encrypted evidence object storage with malware scanning, legal hold and retention enforcement;
 - tamper-evident external audit export and security information and event management integration;
 - regional data residency, backup, restore and disaster-recovery certification;
-- load, chaos, penetration and independent security testing;
+- load, chaos, penetration, container-escape and independent security testing;
 - formal availability objectives, on-call ownership and operational readiness review.
 
 ## Next product milestone
 
-Sprint 4 will build the diagnosis and sandbox execution plane: controlled failure reproduction, command policy, streamed logs, repository mapping, evidence normalization and the first Codex-powered root-cause investigation workflow.
+Sprint 5 will build the diagnosis and Codex orchestration plane: repository mapping, evidence-normalized prompts, root-cause hypotheses, bounded tool contracts, treatment plans, human approval and independently reviewable diagnosis output. Sprint 5 will consume only the evidence and artifacts produced by the hardened Sprint 4 execution boundary.

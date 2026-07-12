@@ -6,10 +6,17 @@ const artifacts = path.join(process.cwd(), 'artifacts');
 await mkdir(artifacts, { recursive: true });
 
 const result = await new Promise((resolve, reject) => {
-  const child = spawn('npm', ['sbom', '--sbom-format', 'cyclonedx'], {
-    shell: false,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
+  const isWindows = process.platform === 'win32';
+  const child = spawn(
+    isWindows ? 'cmd.exe' : 'npm',
+    isWindows
+      ? ['/c', 'npm', 'sbom', '--sbom-format', 'cyclonedx']
+      : ['sbom', '--sbom-format', 'cyclonedx'],
+    {
+      shell: false,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  );
   let stdout = '';
   let stderr = '';
   child.stdout.on('data', (chunk) => (stdout += chunk.toString('utf8')));
