@@ -89,3 +89,21 @@ See [Sandbox Threat Model](docs/security/SANDBOX_THREAT_MODEL.md) and [Sandbox O
 - Restrict sandbox-engine network access to the worker control plane and approved registries or mirrors.
 - Export audit and cleanup failures to centralized monitoring with paging for orphaned-resource conditions.
 - Regularly test database restore, role boundaries, sandbox reconciliation, image revocation and credential rotation.
+
+## Controlled recovery security guarantees
+
+- Only a fully approved treatment-plan version can start a recovery.
+- Every recovery is pinned to an immutable full base-commit SHA and a deterministic non-protected branch.
+- Worktrees are created beneath a dedicated canonical root; traversal, symlink escape, dirty source state and protected branch names are rejected.
+- Model output is a proposal only. Canonical deterministic code parses the unified diff, rejects binary/submodule/unsupported changes and enforces file, line, hunk and byte budgets before application.
+- Dependency, lockfile, workflow, infrastructure, migration, generated-file and security-sensitive changes fail closed unless explicitly enabled by versioned organization policy.
+- Every patch hunk references an approved treatment-plan step and diagnosis evidence. Patch versions, files, hunks, policy decisions, reviews and verification results are integrity hashed and immutable.
+- Patch application uses `git apply --check` before indexed application and rolls back partial failure.
+- Repair and security-review agents use separate contexts and cannot approve publication.
+- Mandatory verification executes in the hardened sandbox and blocks publication when the original failure remains, required checks fail, unexpected files appear or cleanup is not verified.
+- Publication decisions require authenticated human users, optimistic concurrency, distinct actor counting and separation-of-duties rules for high-risk or multi-approval recoveries.
+- Sprint 6 does not push branches, create pull requests, merge code or deploy software automatically.
+
+Prohibited recovery configurations include direct protected-branch writes, automatic merge, arbitrary file-write tools, unrestricted shell/network access, mutable base references, unbounded diffs, binary patches, model-selected policy, service-account publication approval and accepting a PR package whose patch digest differs from the approved immutable version.
+
+See [Controlled Recovery Threat Model](docs/security/CONTROLLED_RECOVERY_THREAT_MODEL.md) and [Controlled Recovery Operations Runbook](docs/operations/CONTROLLED_RECOVERY_RUNBOOK.md).

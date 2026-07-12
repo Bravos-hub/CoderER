@@ -777,3 +777,65 @@ dd {
     grid-template-columns: 1fr;
   }
 }
+
+.recoverySection {
+  margin-top: 2.5rem;
+}
+.recoveryDiffPanel,
+.verificationPanel,
+.prPackagePanel {
+  margin-top: 1rem;
+}
+.recoveryFile {
+  border-top: 1px solid var(--border-subtle);
+  padding: 1rem 0;
+}
+.recoveryFile > header,
+.hunkMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  align-items: center;
+  justify-content: space-between;
+}
+.recoveryFile article {
+  margin-top: 0.8rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.hunkMeta {
+  padding: 0.65rem 0.8rem;
+  background: var(--surface-elevated);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.recoveryFile pre,
+.prBodyPreview {
+  margin: 0;
+  padding: 1rem;
+  overflow: auto;
+  max-height: 520px;
+  background: var(--terminal-background);
+  color: var(--text-primary);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.78rem;
+  line-height: 1.55;
+  white-space: pre;
+}
+.verificationTable {
+  display: grid;
+  gap: 0.6rem;
+}
+.verificationTable > div {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto;
+  gap: 0.4rem 1rem;
+  padding: 0.8rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+.verificationTable small {
+  grid-column: 1 / -1;
+  color: var(--text-secondary);
+}

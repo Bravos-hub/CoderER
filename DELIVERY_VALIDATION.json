@@ -1,21 +1,22 @@
 {
   "project": "CodeER",
-  "version": "0.4.0-sprint5",
-  "deliveryDate": "2026-07-12",
+  "version": "0.5.0-sprint6",
+  "deliveryDate": "2026-07-13",
   "scope": [
     "Sprint 1 secure workspace foundation",
     "Sprint 2 controlled repository intake",
     "Sprint 3 enterprise incident engine",
     "Sprint 4 hardened sandbox and deterministic failure reproduction",
-    "Sprint 5 enterprise Codex investigation orchestration and evidence-grounded diagnosis"
+    "Sprint 5 enterprise Codex investigation orchestration and evidence-grounded diagnosis",
+    "Sprint 6 controlled recovery, patch governance and pull-request packaging"
   ],
   "validation": {
-    "workspaceStructure": "passed (13 workspaces and required enterprise paths)",
+    "workspaceStructure": "passed across 14 npm workspaces and 18 required enterprise paths",
     "format": "passed",
     "lint": "passed",
-    "typecheck": "passed across 13 workspaces",
-    "unitTests": "74 passed in 13 test files",
-    "deterministicEvaluation": {
+    "typecheck": "passed across 14 workspaces",
+    "unitTests": "90 passed in 14 test files",
+    "investigationEvaluation": {
       "status": "passed",
       "cases": 11,
       "rootCauseAccuracy": 1,
@@ -23,16 +24,21 @@
       "unsupportedClaimRate": 0,
       "planMinimality": 1,
       "injectionResistance": 1,
-      "securityReviewRecall": 1,
-      "latencyP95Ms": 200,
-      "note": "known-output framework and guardrail evaluation; not a substitute for private live-model quality evaluation"
+      "securityReviewRecall": 1
     },
-    "sharedPackageBuilds": "passed across 10 shared packages",
+    "recoveryEvaluation": {
+      "status": "passed",
+      "cases": 11,
+      "policyBlockRate": 1,
+      "coverage": "minimal source patch, traversal, binary patch, dependencies, lockfiles, workflows, migrations, security-sensitive files, generated output, budgets and missing provenance"
+    },
+    "recoveryMigrationStaticValidation": "passed for 16 Prisma models, 16 migration tables, 14 immutable triggers and forced-RLS setup",
+    "sharedPackageBuilds": "passed across 11 shared packages",
     "apiBuild": "passed",
     "workerBuild": "passed",
     "nextProductionBuild": "passed",
-    "scriptSyntax": "passed for repository MJS scripts",
-    "yamlParsing": "passed for docker-compose.yml and all GitHub Actions workflows",
+    "scriptSyntax": "passed for recovery migration, reconciliation and persistence smoke scripts",
+    "yamlParsing": "passed for all GitHub Actions workflows",
     "secretPatternScan": "passed",
     "dependencyAudit": {
       "critical": 0,
@@ -43,15 +49,14 @@
     },
     "sbom": "CycloneDX regenerated",
     "prismaSchemaValidation": "not executed locally because binaries.prisma.sh DNS resolution failed while Prisma attempted to download its schema engine",
-    "databaseIntegration": "Sprint 5 migration, RLS and persistence smoke suite implemented in CI; local execution requires PostgreSQL",
+    "databaseIntegration": "Sprint 6 migration, RLS, lease fencing, immutable patch, separation-of-duties and multi-approver smoke coverage implemented; execution requires PostgreSQL",
+    "dockerVerification": "controlled recovery invokes the hardened sandbox verification boundary; real Docker execution remains an environment gate",
     "liveProviderEvaluation": "not executed; requires a secret-managed OpenAI API key and sanitized private fixtures",
-    "providerContract": "strict Responses API JSON Schema, bounded output, timeout, usage accounting, redacted errors and response storage disabled by default",
-    "promptInjectionBoundary": "repository and incident content is isolated as untrusted evidence; tools are deterministic, read-only, agent-specific and audited",
-    "grounding": "diagnoses and plans require valid committed evidence citations and independent security/critic validation",
-    "humanGovernance": "service/system/agent decisions are rejected; production decisions require signed user sessions; distinct approver thresholds and duplicate-decision idempotency are implemented",
-    "tenantIsolation": "AI persistence uses tenant-scoped application queries and forced PostgreSQL RLS; cross-tenant smoke coverage is implemented",
-    "durability": "transactional outbox, leases, heartbeats, checkpoints, cancellation, resume and stale-run reconciliation are implemented",
-    "readOnlyScope": "Sprint 5 exposes no repository write, shell, GitHub mutation, approval or unrestricted network tools"
+    "patchBoundary": "canonical unified diffs, full-SHA worktrees, atomic application, path confinement, change budgets and hunk-level provenance are implemented",
+    "humanGovernance": "service/system/agent publication decisions are rejected; distinct human approvers and separation of duties are enforced per immutable patch version",
+    "tenantIsolation": "recovery persistence uses tenant-scoped application queries and forced PostgreSQL RLS",
+    "durability": "transactional outbox, leases, heartbeats, checkpoints, cancellation, revisions, reconciliation and append-only cleanup proof are implemented",
+    "publicationScope": "Sprint 6 generates an approved pull-request package but does not push, create, merge or deploy automatically"
   },
-  "enterpriseGate": "closed pending PostgreSQL migration/RLS execution, private live-model evaluation, workforce OIDC/SCIM, managed signing keys and secrets, regional encrypted evidence storage, provider egress controls, SIEM integration, load/chaos/red-team testing and formal operational readiness review"
+  "enterpriseGate": "closed pending PostgreSQL migration/RLS execution, real Docker verification, private live-model evaluation, production OIDC/SCIM, managed GitHub publication credentials, KMS-backed signing and secrets, SIEM integration, load/chaos/red-team testing and formal operational readiness review"
 }

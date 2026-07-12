@@ -19,6 +19,7 @@
     "@codeer/sandbox": "0.1.0",
     "@codeer/security": "0.1.0",
     "bullmq": "5.80.2",
-    "@codeer/ai": "0.1.0"
+    "@codeer/ai": "0.1.0",
+    "@codeer/recovery": "0.1.0"
   }
 }

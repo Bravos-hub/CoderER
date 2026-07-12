@@ -264,7 +264,7 @@ try {
     unknowns: [],
     citations: [citation],
     schemaVersion: 'codeer-diagnosis-v1',
-    contentHash: sha256Hex('investigation-smoke-diagnosis'),
+    contentHash: sha256Hex(`investigation-smoke-diagnosis:${created.id}`),
     createdAt: new Date().toISOString(),
   };
   const plan = {
@@ -300,7 +300,7 @@ try {
     knownLimitations: [],
     requiredApprovals: 2,
     schemaVersion: 'codeer-treatment-plan-v1',
-    contentHash: sha256Hex('investigation-smoke-plan'),
+    contentHash: sha256Hex(`investigation-smoke-plan:${created.id}`),
     createdAt: new Date().toISOString(),
   };
   await workerStore.saveDiagnosisAndPlan({

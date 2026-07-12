@@ -16,6 +16,7 @@ export default defineConfig({
       '@codeer/repository': source('./packages/repository/src/index.ts'),
       '@codeer/sandbox': source('./packages/sandbox/src/index.ts'),
       '@codeer/ai': source('./packages/ai/src/index.ts'),
+      '@codeer/recovery': source('./packages/recovery/src/index.ts'),
     },
   },
   test: {

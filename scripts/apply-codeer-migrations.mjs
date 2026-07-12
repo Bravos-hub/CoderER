@@ -50,6 +50,28 @@ const migrations = [
       'EvaluationRun',
     ],
   },
+  {
+    id: '20260713000100_sprint6_controlled_recovery',
+    file: '../packages/database/prisma/migrations/20260713000100_sprint6_controlled_recovery/migration.sql',
+    requiredTables: [
+      'OrganizationRecoveryPolicy',
+      'RecoveryRun',
+      'RecoveryCheckpoint',
+      'RecoveryEvent',
+      'RecoveryWorktree',
+      'RecoveryAgentRun',
+      'RecoveryPatchVersion',
+      'RecoveryPatchFile',
+      'RecoveryPatchHunk',
+      'RecoveryPatchPolicyDecision',
+      'RecoverySecurityReview',
+      'RecoveryVerificationRun',
+      'RecoveryVerificationCheck',
+      'RecoveryPublicationApproval',
+      'RecoveryPullRequestPackage',
+      'RecoveryCleanupRecord',
+    ],
+  },
 ];
 
 function checksum(content) {

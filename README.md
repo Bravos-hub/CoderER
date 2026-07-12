@@ -80,6 +80,27 @@ ADMIT -> TRIAGE -> REPRODUCE -> DIAGNOSE -> RECOVER -> VERIFY -> REVIEW
 - incident command-centre reproduction workflow with policy preview, live state, redacted logs, failure comparison, artifacts and cleanup status;
 - Docker security-profile, database-boundary and deterministic reproduction smoke suites for CI and dedicated runners.
 
+### Sprint 5 - evidence-grounded Codex investigation
+
+- provider-neutral model gateway with OpenAI Responses API support, strict structured output and organization model/budget policy;
+- durable, lease-fenced multi-agent investigation workflow with checkpoints, cancellation, resume and stale-run reconciliation;
+- bounded read-only repository/evidence tools with path confinement, redaction, provenance and tenant authorization;
+- prompt-injection containment that treats repository content and model output as untrusted;
+- citation-valid primary and alternative hypotheses, independent security review and critic stages;
+- immutable versioned treatment plans, multi-human approval thresholds and separation of duties;
+- forced-RLS AI persistence, usage/cost telemetry, adversarial evaluation and command-centre investigation workflows.
+
+### Sprint 6 - controlled recovery and patch governance
+
+- approved-plan-only recovery creation pinned to an immutable base commit and deterministic non-protected branch;
+- isolated Git worktrees with canonical path confinement, full-SHA validation and argument-array Git execution;
+- strict unified-diff parsing, binary/traversal/symlink/submodule rejection and atomic `git apply --check` application;
+- deny-by-default file, line, hunk, byte and sensitive-change budgets controlled by versioned organization policy;
+- hunk-level treatment-plan and diagnosis-evidence provenance with immutable patch versions and content digests;
+- separate repair and security-review agents, hardened sandbox verification and unexpected-change detection;
+- versioned pull-request packages, human-only publication approval, multi-approver separation of duties and no direct push or auto-merge;
+- tenant-scoped recovery persistence, forced RLS, leases, checkpoints, reconciliation, cleanup proof and adversarial recovery evaluations.
+
 ## Workspace
 
 ```text
@@ -96,6 +117,8 @@ packages/
   logger/       Structured redacted logging
   repository/   Controlled Git clone and worktree operations
   sandbox/      Policy engine, signatures, logs, provider and orchestrator
+  ai/           Provider-neutral model gateway and structured AI contracts
+  recovery/     Worktree, patch, policy, provenance and PR-package controls
   security/     Signed context, authorization, hashing and redaction
 infra/docker/   Hardened application and migration container definitions
 test/fixtures/  Deterministic broken repositories for sandbox validation
@@ -131,6 +154,8 @@ npm run format:check
 npm run lint
 npm run typecheck
 npm run test
+npm run test:evaluation:investigation
+npm run test:evaluation:recovery
 NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 npm run build
 npm run security:check
 npm run security:sbom
@@ -144,6 +169,8 @@ npm run db:provision:runtime
 npm run db:verify:roles
 npm run test:integration:incident
 npm run test:integration:sandbox:persistence
+npm run test:integration:investigation
+npm run test:integration:recovery
 ```
 
 Run the real Docker execution-boundary smoke test from a trusted operator host:
@@ -228,6 +255,16 @@ Production human sessions are issued by an identity edge or OIDC adapter as sign
 - [ADR 0008: Untrusted Evidence and Read-Only Tools](docs/adr/0008-untrusted-evidence-and-read-only-tools.md)
 - [ADR 0009: Human Approval and Separation of Duties](docs/adr/0009-human-approval-and-separation-of-duties.md)
 
+## Enterprise controlled-recovery documentation
+
+- [Controlled Recovery Architecture](docs/architecture/CONTROLLED_RECOVERY_PLANE.md)
+- [Controlled Recovery Threat Model](docs/security/CONTROLLED_RECOVERY_THREAT_MODEL.md)
+- [Recoveries API](docs/api/RECOVERIES_API.md)
+- [Recovery Data Model](docs/data/RECOVERY_DATA_MODEL.md)
+- [Controlled Recovery Operations Runbook](docs/operations/CONTROLLED_RECOVERY_RUNBOOK.md)
+- [Controlled Recovery Evaluation](docs/evaluations/RECOVERY_EVALUATION.md)
+- [ADR 0010: Evidence-Linked Atomic Patches](docs/adr/0010-evidence-linked-atomic-patches.md)
+
 ## Enterprise sandbox documentation
 
 - [Sprint 4 Hardened Sandbox Architecture](docs/architecture/SPRINT_4_HARDENED_SANDBOX.md)
@@ -263,7 +300,7 @@ Production human sessions are issued by an identity edge or OIDC adapter as sign
 
 ## Security and enterprise-readiness status
 
-Sprint 4 establishes the first executable trust boundary, but CodeER is not yet approved for unrestricted production access to sensitive enterprise repositories.
+Sprints 4-6 establish the executable, intelligence and controlled-recovery trust boundaries, but CodeER is not yet approved for unrestricted production access to sensitive enterprise repositories.
 
 Remaining enterprise gates include:
 
@@ -279,4 +316,4 @@ Remaining enterprise gates include:
 
 ## Next product milestone
 
-Sprint 6 will build the controlled recovery plane: approval-bound patch generation inside isolated worktrees, smallest-safe-change enforcement, independent security review, deterministic verification, rollback evidence and a reviewable pull-request package. No recovery action will bypass the Sprint 5 treatment-plan approval or the Sprint 4 sandbox boundary.
+Sprint 7 will add the governed GitHub publication and independent release-verification plane: recreate the exact approved patch digest, push only a dedicated recovery branch through a least-privilege GitHub App, open a draft pull request, attach tamper-evident evidence, consume CI/check results and prevent merge until branch protection and human review requirements are satisfied. Production deployment and automatic merge remain out of scope.

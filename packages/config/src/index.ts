@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { z } from 'zod';
 
 const DEVELOPMENT_DATABASE_URL =
@@ -158,6 +159,72 @@ const aiSchema = z.object({
   AI_STORE_PROVIDER_RESPONSES: booleanFromEnvironment('false'),
 });
 
+const recoveryPolicySchema = z.object({
+  RECOVERY_ALLOWED_PATHS: z
+    .string()
+    .default('apps,packages')
+    .transform((value) =>
+      value
+        .split(',')
+        .map((entry) => entry.trim())
+        .filter(Boolean),
+    )
+    .refine((value) => value.length > 0 && value.length <= 500, 'Provide 1-500 recovery paths'),
+  RECOVERY_ALLOWED_EXTENSIONS: z
+    .string()
+    .default('.ts,.tsx,.js,.jsx,.json,.md,.css,.scss,.html,.yml,.yaml')
+    .transform((value) =>
+      value
+        .split(',')
+        .map((entry) => entry.trim().toLowerCase())
+        .filter(Boolean),
+    )
+    .refine(
+      (value) => value.length > 0 && value.every((entry) => /^\.[a-z0-9]+$/.test(entry)),
+      'Recovery extensions must be dot-prefixed alphanumeric values',
+    ),
+  RECOVERY_MAX_CHANGED_FILES: z.coerce.number().int().min(1).max(1_000).default(25),
+  RECOVERY_MAX_CHANGED_LINES: z.coerce.number().int().min(1).max(100_000).default(1_000),
+  RECOVERY_MAX_PATCH_HUNKS: z.coerce.number().int().min(1).max(10_000).default(200),
+  RECOVERY_MAX_PATCH_BYTES: z.coerce
+    .number()
+    .int()
+    .min(1_024)
+    .max(100 * 1024 * 1024)
+    .default(2 * 1024 * 1024),
+  RECOVERY_ALLOW_NEW_FILES: booleanFromEnvironment('true'),
+  RECOVERY_ALLOW_DELETED_FILES: booleanFromEnvironment('false'),
+  RECOVERY_ALLOW_GENERATED_FILES: booleanFromEnvironment('false'),
+  RECOVERY_ALLOW_DEPENDENCY_CHANGES: booleanFromEnvironment('false'),
+  RECOVERY_ALLOW_LOCKFILE_CHANGES: booleanFromEnvironment('false'),
+  RECOVERY_ALLOW_WORKFLOW_CHANGES: booleanFromEnvironment('false'),
+  RECOVERY_ALLOW_INFRASTRUCTURE_CHANGES: booleanFromEnvironment('false'),
+  RECOVERY_ALLOW_MIGRATION_CHANGES: booleanFromEnvironment('false'),
+  RECOVERY_ALLOW_SECURITY_SENSITIVE_CHANGES: booleanFromEnvironment('false'),
+  RECOVERY_REQUIRED_PUBLICATION_APPROVALS: z.coerce.number().int().min(1).max(10).default(1),
+  RECOVERY_RETENTION_DAYS: z.coerce.number().int().min(1).max(3_650).default(90),
+  RECOVERY_CONCURRENCY: z.coerce.number().int().min(1).max(20).default(1),
+  RECOVERY_LEASE_MS: z.coerce
+    .number()
+    .int()
+    .min(15_000)
+    .max(10 * 60 * 1000)
+    .default(90_000),
+  RECOVERY_RECONCILE_INTERVAL_MS: z.coerce
+    .number()
+    .int()
+    .min(10_000)
+    .max(60 * 60 * 1000)
+    .default(60_000),
+  RECOVERY_STALE_AFTER_MS: z.coerce
+    .number()
+    .int()
+    .min(60_000)
+    .max(24 * 60 * 60 * 1000)
+    .default(60 * 60 * 1000),
+  RECOVERY_WORKTREE_ROOT: z.string().trim().min(1).max(2_048).default('/tmp/codeer-recoveries'),
+});
+
 const sandboxPolicySchema = z.object({
   SANDBOX_DEFAULT_IMAGE: z.string().trim().min(1).max(512).default('node:24-bookworm-slim'),
   SANDBOX_HELPER_IMAGE: z.string().trim().min(1).max(512).default('node:24-bookworm-slim'),
@@ -247,6 +314,7 @@ const apiSchema = baseSchema
   .merge(tenancySchema)
   .merge(sandboxPolicySchema)
   .merge(aiSchema)
+  .merge(recoveryPolicySchema)
   .extend({
     API_PORT: z.coerce.number().int().positive().max(65_535).default(4100),
     API_BODY_LIMIT: z
@@ -389,6 +457,7 @@ const workerSchema = baseSchema
   .merge(databaseSchema)
   .merge(sandboxPolicySchema)
   .merge(aiSchema)
+  .merge(recoveryPolicySchema)
   .extend({
     REDIS_URL: z.string().url().default('redis://localhost:6379'),
     WORKER_CONCURRENCY: z.coerce.number().int().positive().max(50).default(2),
@@ -551,6 +620,34 @@ const workerSchema = baseSchema
         code: z.ZodIssueCode.custom,
         path: ['SANDBOX_HELPER_IMAGE'],
         message: 'Production helper images must be digest pinned.',
+      });
+    }
+    if (config.RECOVERY_STALE_AFTER_MS < config.RECOVERY_LEASE_MS * 2) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['RECOVERY_STALE_AFTER_MS'],
+        message: 'Recovery stale threshold must be at least two lease windows.',
+      });
+    }
+    if (config.NODE_ENV === 'production' && !path.isAbsolute(config.RECOVERY_WORKTREE_ROOT)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['RECOVERY_WORKTREE_ROOT'],
+        message: 'Production recovery worktree root must be an absolute path.',
+      });
+    }
+    if (
+      path.resolve(config.RECOVERY_WORKTREE_ROOT) ===
+        path.resolve(config.REPOSITORY_WORKSPACE_ROOT) ||
+      path
+        .resolve(config.RECOVERY_WORKTREE_ROOT)
+        .startsWith(`${path.resolve(config.REPOSITORY_WORKSPACE_ROOT)}${path.sep}`)
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['RECOVERY_WORKTREE_ROOT'],
+        message:
+          'Recovery worktrees must use a separate root outside the repository intake workspace.',
       });
     }
     if (

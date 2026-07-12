@@ -72,6 +72,14 @@ export enum IncidentPermission {
   APPROVE_TREATMENT_PLAN = 'incident:treatment-plan:approve',
   REJECT_TREATMENT_PLAN = 'incident:treatment-plan:reject',
   ADMINISTER_AI_POLICY = 'organization:ai-policy:manage',
+  START_RECOVERY = 'incident:recovery:start',
+  READ_RECOVERY = 'incident:recovery:read',
+  CANCEL_RECOVERY = 'incident:recovery:cancel',
+  RESUME_RECOVERY = 'incident:recovery:resume',
+  REQUEST_RECOVERY_REVISION = 'incident:recovery:revision',
+  APPROVE_RECOVERY_PUBLICATION = 'incident:recovery:publication:approve',
+  REJECT_RECOVERY_PUBLICATION = 'incident:recovery:publication:reject',
+  ADMINISTER_RECOVERY_POLICY = 'organization:recovery-policy:manage',
 }
 
 export enum RepositoryPermission {
@@ -121,6 +129,22 @@ export enum IncidentEventType {
   TREATMENT_PLAN_REJECTED = 'TREATMENT_PLAN_REJECTED',
   AI_GUARDRAIL_BLOCKED = 'AI_GUARDRAIL_BLOCKED',
   AI_BUDGET_EXCEEDED = 'AI_BUDGET_EXCEEDED',
+  RECOVERY_REQUESTED = 'RECOVERY_REQUESTED',
+  RECOVERY_STARTED = 'RECOVERY_STARTED',
+  RECOVERY_CHECKPOINTED = 'RECOVERY_CHECKPOINTED',
+  RECOVERY_POLICY_BLOCKED = 'RECOVERY_POLICY_BLOCKED',
+  RECOVERY_WORKTREE_READY = 'RECOVERY_WORKTREE_READY',
+  RECOVERY_PATCH_PROPOSED = 'RECOVERY_PATCH_PROPOSED',
+  RECOVERY_PATCH_REJECTED = 'RECOVERY_PATCH_REJECTED',
+  RECOVERY_SECURITY_REVIEWED = 'RECOVERY_SECURITY_REVIEWED',
+  RECOVERY_VERIFICATION_COMPLETED = 'RECOVERY_VERIFICATION_COMPLETED',
+  RECOVERY_PACKAGE_READY = 'RECOVERY_PACKAGE_READY',
+  RECOVERY_PUBLICATION_APPROVED = 'RECOVERY_PUBLICATION_APPROVED',
+  RECOVERY_PUBLICATION_REJECTED = 'RECOVERY_PUBLICATION_REJECTED',
+  RECOVERY_CANCELLED = 'RECOVERY_CANCELLED',
+  RECOVERY_FAILED = 'RECOVERY_FAILED',
+  RECOVERY_CLEANUP_COMPLETED = 'RECOVERY_CLEANUP_COMPLETED',
+  RECOVERY_CLEANUP_FAILED = 'RECOVERY_CLEANUP_FAILED',
 }
 
 export enum EvidenceKind {
@@ -144,6 +168,12 @@ export enum EvidenceKind {
   DIAGNOSIS = 'DIAGNOSIS',
   TREATMENT_PLAN = 'TREATMENT_PLAN',
   AI_GUARDRAIL = 'AI_GUARDRAIL',
+  RECOVERY_POLICY = 'RECOVERY_POLICY',
+  RECOVERY_PATCH = 'RECOVERY_PATCH',
+  RECOVERY_SECURITY_REVIEW = 'RECOVERY_SECURITY_REVIEW',
+  RECOVERY_VERIFICATION = 'RECOVERY_VERIFICATION',
+  PULL_REQUEST_PACKAGE = 'PULL_REQUEST_PACKAGE',
+  RECOVERY_CLEANUP = 'RECOVERY_CLEANUP',
 }
 
 export enum EvidenceSource {
@@ -1250,3 +1280,336 @@ export type InvestigationJob = z.infer<typeof InvestigationJobSchema>;
 export const INVESTIGATION_QUEUE = 'codeer-investigation';
 export const INVESTIGATION_JOB = 'investigation.execute';
 export const INVESTIGATION_OUTBOX_TOPIC = 'investigation.requested';
+
+export enum RecoveryRunStatus {
+  REQUESTED = 'REQUESTED',
+  POLICY_CHECK = 'POLICY_CHECK',
+  WORKTREE_PREPARING = 'WORKTREE_PREPARING',
+  PATCH_PLANNING = 'PATCH_PLANNING',
+  PATCH_GENERATING = 'PATCH_GENERATING',
+  PATCH_VALIDATING = 'PATCH_VALIDATING',
+  SECURITY_REVIEW = 'SECURITY_REVIEW',
+  VERIFYING = 'VERIFYING',
+  PACKAGE_BUILDING = 'PACKAGE_BUILDING',
+  AWAITING_PUBLICATION_APPROVAL = 'AWAITING_PUBLICATION_APPROVAL',
+  READY_TO_PUBLISH = 'READY_TO_PUBLISH',
+  PUBLISHED = 'PUBLISHED',
+  POLICY_BLOCKED = 'POLICY_BLOCKED',
+  CANCELLED = 'CANCELLED',
+  TIMED_OUT = 'TIMED_OUT',
+  PATCH_REJECTED = 'PATCH_REJECTED',
+  SECURITY_REJECTED = 'SECURITY_REJECTED',
+  VERIFICATION_FAILED = 'VERIFICATION_FAILED',
+  WORKTREE_FAILED = 'WORKTREE_FAILED',
+  MODEL_FAILED = 'MODEL_FAILED',
+  TOOL_FAILED = 'TOOL_FAILED',
+  BUDGET_EXCEEDED = 'BUDGET_EXCEEDED',
+  CLEANUP_FAILED = 'CLEANUP_FAILED',
+}
+
+export enum RecoveryWorktreeStatus {
+  REQUESTED = 'REQUESTED',
+  CREATING = 'CREATING',
+  READY = 'READY',
+  DIRTY = 'DIRTY',
+  REMOVING = 'REMOVING',
+  REMOVED = 'REMOVED',
+  FAILED = 'FAILED',
+}
+
+export enum PatchVersionStatus {
+  PROPOSED = 'PROPOSED',
+  VALIDATING = 'VALIDATING',
+  ACCEPTED = 'ACCEPTED',
+  REJECTED = 'REJECTED',
+  SUPERSEDED = 'SUPERSEDED',
+}
+
+export enum RecoverySecurityDecision {
+  ALLOW = 'ALLOW',
+  REQUIRE_REVISION = 'REQUIRE_REVISION',
+  BLOCK = 'BLOCK',
+}
+
+export enum RecoveryVerificationStatus {
+  PENDING = 'PENDING',
+  RUNNING = 'RUNNING',
+  PASSED = 'PASSED',
+  FAILED = 'FAILED',
+  INCONCLUSIVE = 'INCONCLUSIVE',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum RecoveryVerificationCheckStatus {
+  PENDING = 'PENDING',
+  RUNNING = 'RUNNING',
+  PASSED = 'PASSED',
+  FAILED = 'FAILED',
+  SKIPPED = 'SKIPPED',
+  BLOCKED = 'BLOCKED',
+}
+
+export enum PublicationDecision {
+  APPROVE = 'APPROVE',
+  REJECT = 'REJECT',
+}
+
+export const RecoveryPolicySchema = z.object({
+  policyVersion: z.string().trim().min(1).max(64),
+  allowedPaths: z.array(z.string().trim().min(1).max(1024)).min(1).max(500),
+  deniedPaths: z.array(z.string().trim().min(1).max(1024)).max(500).default([]),
+  allowedExtensions: z
+    .array(
+      z
+        .string()
+        .trim()
+        .regex(/^\.[A-Za-z0-9]+$/),
+    )
+    .min(1)
+    .max(100),
+  maximumChangedFiles: z.number().int().min(1).max(1_000).default(25),
+  maximumChangedLines: z.number().int().min(1).max(100_000).default(1_000),
+  maximumPatchHunks: z.number().int().min(1).max(10_000).default(200),
+  maximumPatchBytes: z
+    .number()
+    .int()
+    .min(1_024)
+    .max(100 * 1024 * 1024)
+    .default(2 * 1024 * 1024),
+  allowNewFiles: z.boolean().default(true),
+  allowDeletedFiles: z.boolean().default(false),
+  allowGeneratedFiles: z.boolean().default(false),
+  allowDependencyChanges: z.boolean().default(false),
+  allowLockfileChanges: z.boolean().default(false),
+  allowWorkflowChanges: z.boolean().default(false),
+  allowInfrastructureChanges: z.boolean().default(false),
+  allowMigrationChanges: z.boolean().default(false),
+  allowSecuritySensitiveChanges: z.boolean().default(false),
+  requireSecurityReview: z.literal(true).default(true),
+  requireIndependentVerification: z.literal(true).default(true),
+  requireHumanPublicationApproval: z.literal(true).default(true),
+  requiredPublicationApprovals: z.number().int().min(1).max(10).default(1),
+  retentionDays: z.number().int().min(1).max(3_650).default(90),
+});
+export type RecoveryPolicy = z.infer<typeof RecoveryPolicySchema>;
+
+export const StartRecoverySchema = z.object({
+  baseCommitSha: z.string().regex(/^[0-9a-f]{40}$/),
+  requestedBranchName: z.string().trim().min(1).max(240).optional(),
+  requestedModel: z.string().trim().min(1).max(128).optional(),
+  additionalConstraints: z.array(z.string().trim().min(1).max(1_000)).max(50).default([]),
+});
+export type StartRecoveryInput = z.infer<typeof StartRecoverySchema>;
+
+export const RecoveryRunSchema = z.object({
+  id: UuidSchema,
+  organizationId: UuidSchema,
+  incidentId: UuidSchema,
+  treatmentPlanId: UuidSchema,
+  repositoryId: UuidSchema,
+  status: z.nativeEnum(RecoveryRunStatus),
+  version: z.number().int().positive(),
+  policyVersion: z.string().min(1).max(64),
+  treatmentPlanVersion: z.number().int().positive(),
+  baseCommitSha: z.string().regex(/^[0-9a-f]{40}$/),
+  branchName: z.string().trim().min(1).max(255),
+  patchVersion: z.number().int().positive().nullable(),
+  leaseOwner: z.string().max(255).nullable(),
+  leaseExpiresAt: z.string().datetime().nullable(),
+  cancellationRequestedAt: z.string().datetime().nullable(),
+  startedAt: z.string().datetime().nullable(),
+  completedAt: z.string().datetime().nullable(),
+  errorCode: z.string().max(128).nullable(),
+  errorMessage: z.string().max(2_000).nullable(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+export type RecoveryRun = z.infer<typeof RecoveryRunSchema>;
+
+export const RecoveryListQuerySchema = z.object({
+  cursor: z.string().min(1).max(512).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+  status: z.nativeEnum(RecoveryRunStatus).optional(),
+});
+export type RecoveryListQuery = z.infer<typeof RecoveryListQuerySchema>;
+
+export const RecoveryEventSchema = z.object({
+  id: UuidSchema,
+  recoveryId: UuidSchema,
+  sequence: z.number().int().positive(),
+  type: z.string().trim().min(1).max(128),
+  payload: z.record(z.string(), z.unknown()),
+  previousHash: z.string().length(64).nullable(),
+  eventHash: z.string().length(64),
+  occurredAt: z.string().datetime(),
+});
+export type RecoveryEvent = z.infer<typeof RecoveryEventSchema>;
+
+export const PatchHunkSchema = z.object({
+  id: UuidSchema,
+  fileId: UuidSchema,
+  sequence: z.number().int().positive(),
+  oldStart: z.number().int().nonnegative(),
+  oldLines: z.number().int().nonnegative(),
+  newStart: z.number().int().nonnegative(),
+  newLines: z.number().int().nonnegative(),
+  header: z.string().min(1).max(1_000),
+  content: z.string().max(512 * 1024),
+  addedLines: z.number().int().nonnegative(),
+  deletedLines: z.number().int().nonnegative(),
+  treatmentPlanStep: z.number().int().positive(),
+  evidenceCitations: z.array(InvestigationCitationSchema).min(1).max(100),
+  contentHash: z.string().regex(/^[0-9a-f]{64}$/),
+});
+export type PatchHunk = z.infer<typeof PatchHunkSchema>;
+
+export const PatchFileSchema = z.object({
+  id: UuidSchema,
+  patchId: UuidSchema,
+  oldPath: z.string().trim().min(1).max(1024).nullable(),
+  newPath: z.string().trim().min(1).max(1024).nullable(),
+  changeType: z.enum(['ADD', 'MODIFY', 'DELETE', 'RENAME']),
+  oldDigest: z
+    .string()
+    .regex(/^[0-9a-f]{64}$/)
+    .nullable(),
+  newDigest: z
+    .string()
+    .regex(/^[0-9a-f]{64}$/)
+    .nullable(),
+  addedLines: z.number().int().nonnegative(),
+  deletedLines: z.number().int().nonnegative(),
+  binary: z.boolean(),
+  generated: z.boolean(),
+  sensitive: z.boolean(),
+  hunks: z.array(PatchHunkSchema).max(5_000),
+});
+export type PatchFile = z.infer<typeof PatchFileSchema>;
+
+export const PatchVersionSchema = z.object({
+  id: UuidSchema,
+  recoveryId: UuidSchema,
+  version: z.number().int().positive(),
+  status: z.nativeEnum(PatchVersionStatus),
+  baseCommitSha: z.string().regex(/^[0-9a-f]{40}$/),
+  unifiedDiff: z.string().max(100 * 1024 * 1024),
+  patchDigest: z.string().regex(/^[0-9a-f]{64}$/),
+  changedFiles: z.number().int().nonnegative(),
+  addedLines: z.number().int().nonnegative(),
+  deletedLines: z.number().int().nonnegative(),
+  files: z.array(PatchFileSchema).max(1_000),
+  policyDecision: z.object({
+    allowed: z.boolean(),
+    reasons: z.array(z.string().min(1).max(1_000)).max(500),
+    policyVersion: z.string().min(1).max(64),
+    evaluatedAt: z.string().datetime(),
+  }),
+  createdAt: z.string().datetime(),
+});
+export type PatchVersion = z.infer<typeof PatchVersionSchema>;
+
+export const RecoverySecurityReviewSchema = z.object({
+  id: UuidSchema,
+  recoveryId: UuidSchema,
+  patchId: UuidSchema,
+  decision: z.nativeEnum(RecoverySecurityDecision),
+  summary: z.string().trim().min(10).max(10_000),
+  findings: z
+    .array(
+      z.object({
+        severity: z.nativeEnum(RiskLevel),
+        category: z.string().trim().min(1).max(128),
+        path: z.string().trim().min(1).max(1024).nullable(),
+        message: z.string().trim().min(3).max(4_000),
+        citation: InvestigationCitationSchema.optional(),
+      }),
+    )
+    .max(500),
+  reviewerModel: z.string().trim().min(1).max(128),
+  contentHash: z.string().regex(/^[0-9a-f]{64}$/),
+  createdAt: z.string().datetime(),
+});
+export type RecoverySecurityReview = z.infer<typeof RecoverySecurityReviewSchema>;
+
+export const RecoveryVerificationCheckSchema = z.object({
+  id: UuidSchema,
+  verificationId: UuidSchema,
+  sequence: z.number().int().positive(),
+  name: z.string().trim().min(1).max(240),
+  command: SandboxCommandRequestSchema.optional(),
+  mandatory: z.boolean(),
+  status: z.nativeEnum(RecoveryVerificationCheckStatus),
+  exitCode: z.number().int().nullable(),
+  evidenceIds: z.array(UuidSchema).max(100),
+  summary: z.string().max(4_000),
+  startedAt: z.string().datetime().nullable(),
+  completedAt: z.string().datetime().nullable(),
+});
+export type RecoveryVerificationCheck = z.infer<typeof RecoveryVerificationCheckSchema>;
+
+export const RecoveryVerificationReportSchema = z.object({
+  id: UuidSchema,
+  recoveryId: UuidSchema,
+  patchId: UuidSchema,
+  status: z.nativeEnum(RecoveryVerificationStatus),
+  originalFailureResolved: z.boolean(),
+  unexpectedChanges: z.array(z.string().trim().min(1).max(1024)).max(500),
+  scopeExpanded: z.boolean(),
+  checks: z.array(RecoveryVerificationCheckSchema).max(200),
+  summary: z.string().trim().min(3).max(10_000),
+  confidence: z.number().min(0).max(1),
+  contentHash: z.string().regex(/^[0-9a-f]{64}$/),
+  createdAt: z.string().datetime(),
+});
+export type RecoveryVerificationReport = z.infer<typeof RecoveryVerificationReportSchema>;
+
+export const PullRequestPackageSchema = z.object({
+  id: UuidSchema,
+  version: z.number().int().positive(),
+  recoveryId: UuidSchema,
+  patchId: UuidSchema,
+  title: z.string().trim().min(5).max(240),
+  body: z.string().trim().min(20).max(100_000),
+  headBranch: z.string().trim().min(1).max(255),
+  baseBranch: z.string().trim().min(1).max(255),
+  rootCauseSummary: z.string().trim().min(10).max(10_000),
+  changedFiles: z.array(z.string().trim().min(1).max(1024)).max(1_000),
+  riskSummary: z.string().trim().min(3).max(10_000),
+  verificationSummary: z.string().trim().min(3).max(10_000),
+  knownLimitations: z.array(z.string().trim().min(1).max(1_000)).max(100),
+  rollbackInstructions: z.string().trim().min(10).max(10_000),
+  packageHash: z.string().regex(/^[0-9a-f]{64}$/),
+  createdAt: z.string().datetime(),
+});
+export type PullRequestPackage = z.infer<typeof PullRequestPackageSchema>;
+
+export const PublicationDecisionSchema = z.object({
+  decision: z.nativeEnum(PublicationDecision),
+  comment: z.string().trim().min(10).max(5_000),
+  expectedRecoveryVersion: z.number().int().positive(),
+});
+export type PublicationDecisionInput = z.infer<typeof PublicationDecisionSchema>;
+
+export const RecoveryRevisionRequestSchema = z.object({
+  comment: z.string().trim().min(10).max(5_000),
+  expectedRecoveryVersion: z.number().int().positive(),
+  additionalConstraints: z.array(z.string().trim().min(1).max(1_000)).max(50).default([]),
+});
+export type RecoveryRevisionRequest = z.infer<typeof RecoveryRevisionRequestSchema>;
+
+export const ControlledRecoveryJobSchema = z.object({
+  recoveryId: UuidSchema,
+  organizationId: UuidSchema,
+  incidentId: UuidSchema,
+  treatmentPlanId: UuidSchema,
+  requestedBy: z.string().min(1).max(255),
+  requestId: z.string().min(1).max(128),
+  correlationId: z.string().min(1).max(128),
+  requestedAt: z.string().datetime(),
+  attempt: z.number().int().positive().default(1),
+});
+export type ControlledRecoveryJob = z.infer<typeof ControlledRecoveryJobSchema>;
+
+export const CONTROLLED_RECOVERY_QUEUE = 'codeer-controlled-recovery';
+export const CONTROLLED_RECOVERY_JOB = 'recovery.execute';
+export const CONTROLLED_RECOVERY_OUTBOX_TOPIC = 'recovery.requested';

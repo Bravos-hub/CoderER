@@ -144,8 +144,6 @@ try {
     throw new Error('Evidence secret redaction failed');
   }
 
-  // A reused development database can contain pending messages from earlier
-  // smoke runs, so claim a sufficiently broad batch to include this run.
   const claimed = await workerStore.claimOutboxBatch('ci-outbox-smoke', 1_000, 60_000);
   const triageMessage = claimed.find(
     (message) =>

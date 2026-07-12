@@ -37,7 +37,8 @@ const input = StartReproductionSchema.parse({
     },
   ],
   failureSignature: {
-    expectedText: 'CODEER_FIXTURE_FAILURE: deterministic build contract mismatch',
+    expectedText:
+      'authorization=[REDACTED]\nCODEER_FIXTURE_FAILURE: deterministic build contract mismatch',
     minimumSimilarity: 0.9,
     requireNonZeroExit: true,
   },
@@ -130,10 +131,18 @@ try {
   );
 
   if (result.status !== SandboxExecutionStatus.COMPLETED) {
-    throw new Error(`Sandbox smoke ended in ${result.status}`);
+    const diagnostic = logs
+      .filter((entry) => entry.stream === 'system')
+      .map((entry) => entry.content)
+      .join('; ');
+    throw new Error(
+      `Sandbox smoke ended in ${result.status}${diagnostic ? `: ${diagnostic}` : ''}`,
+    );
   }
   if (result.result !== SandboxResult.REPRODUCED) {
-    throw new Error(`Expected REPRODUCED, received ${result.result}`);
+    throw new Error(
+      `Expected REPRODUCED, received ${result.result}: ${JSON.stringify({ commands, logs })}`,
+    );
   }
   if (!result.comparison?.matched || result.confidence < 0.9) {
     throw new Error('Failure-signature comparison did not meet the smoke threshold.');

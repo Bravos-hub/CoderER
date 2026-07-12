@@ -1,0 +1,102 @@
+name: Controlled Recovery Security
+
+on:
+  pull_request:
+    paths:
+      - 'packages/recovery/**'
+      - 'packages/contracts/**'
+      - 'packages/security/**'
+      - 'packages/database/**'
+      - 'apps/api/src/recoveries/**'
+      - 'apps/worker/src/controlled-recovery-worker.ts'
+      - 'scripts/evaluate-recovery-engine.ts'
+      - 'scripts/smoke-recovery-persistence.mjs'
+      - '.github/workflows/recovery-security.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'packages/recovery/**'
+      - 'packages/contracts/**'
+      - 'packages/security/**'
+      - 'packages/database/**'
+      - 'apps/api/src/recoveries/**'
+      - 'apps/worker/src/controlled-recovery-worker.ts'
+      - 'scripts/evaluate-recovery-engine.ts'
+      - 'scripts/smoke-recovery-persistence.mjs'
+      - '.github/workflows/recovery-security.yml'
+  schedule:
+    - cron: '31 4 * * 3'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: recovery-security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  policy-and-git:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run test -w @codeer/recovery
+      - run: npm run test:evaluation:recovery
+      - name: Enforce protected-branch and shell invariants
+        run: |
+          ! grep -R --line-number -E 'git (push|merge)|--force|shell:[[:space:]]*true' packages/recovery apps/worker/src/controlled-recovery-worker.ts
+          grep -R --line-number --fixed-strings "git apply --check" docs/architecture/CONTROLLED_RECOVERY_PLANE.md
+
+  persistence-boundary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: codeer
+          POSTGRES_USER: codeer
+          POSTGRES_PASSWORD: codeer-ci-admin-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U codeer -d codeer"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      NODE_ENV: test
+      DATABASE_ADMIN_URL: postgresql://codeer:codeer-ci-admin-password@localhost:5432/codeer
+      DATABASE_RUNTIME_USER: codeer_app
+      DATABASE_RUNTIME_PASSWORD: codeer-ci-runtime-password
+      DATABASE_WORKER_USER: codeer_worker
+      DATABASE_WORKER_PASSWORD: codeer-ci-worker-password
+      DATABASE_URL: postgresql://codeer_app:codeer-ci-runtime-password@localhost:5432/codeer
+      DATABASE_WORKER_URL: postgresql://codeer_worker:codeer-ci-worker-password@localhost:5432/codeer
+      REDIS_URL: redis://localhost:6379
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run db:validate:recovery-static
+      - run: npm run db:migrate:all
+      - run: npm run db:provision:runtime
+      - run: npm run db:verify:roles
+      - run: npm run test:integration:recovery

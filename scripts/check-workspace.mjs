@@ -12,6 +12,11 @@ const requiredPaths = [
   'packages/database/package.json',
   'packages/github/package.json',
   'packages/repository/package.json',
+  'packages/sandbox/package.json',
+  'packages/ai/package.json',
+  'packages/recovery/package.json',
+  'docs/architecture/CONTROLLED_RECOVERY_PLANE.md',
+  'packages/database/prisma/migrations/20260713000100_sprint6_controlled_recovery/migration.sql',
   'docker-compose.yml',
   '.github/workflows/ci.yml',
 ];
