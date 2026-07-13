@@ -80,6 +80,14 @@ export enum IncidentPermission {
   APPROVE_RECOVERY_PUBLICATION = 'incident:recovery:publication:approve',
   REJECT_RECOVERY_PUBLICATION = 'incident:recovery:publication:reject',
   ADMINISTER_RECOVERY_POLICY = 'organization:recovery-policy:manage',
+  START_PUBLICATION = 'incident:publication:start',
+  READ_PUBLICATION = 'incident:publication:read',
+  CANCEL_PUBLICATION = 'incident:publication:cancel',
+  RETRY_PUBLICATION = 'incident:publication:retry',
+  REQUEST_PUBLICATION_REVISION = 'incident:publication:revision',
+  MARK_PUBLICATION_READY = 'incident:publication:mark-ready',
+  READ_INCIDENT_CLOSURE = 'incident:closure:read',
+  ADMINISTER_PUBLICATION_POLICY = 'organization:publication-policy:manage',
 }
 
 export enum RepositoryPermission {

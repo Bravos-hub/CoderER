@@ -1,0 +1,34 @@
+{
+  "package": "codeer-sprint7-github-publication-v0.6.0",
+  "branch": "agent/sprint-7-github-publication",
+  "issue": 22,
+  "completed": {
+    "workspace_check": true,
+    "format_check": true,
+    "targeted_lint": true,
+    "all_workspace_typechecks": true,
+    "unit_tests": {
+      "passed": 102,
+      "files": 15
+    },
+    "publication_tests": {
+      "passed": 12
+    },
+    "publication_migration_static_validation": true,
+    "secret_scan": true,
+    "dependency_audit": {
+      "critical": 0,
+      "high": 0,
+      "moderate": 5,
+      "low": 0
+    },
+    "package_api_worker_builds": true
+  },
+  "not_completed": [
+    "PostgreSQL migration execution and forced-RLS integration tests",
+    "Live GitHub App installation-token and draft pull-request test",
+    "Persistent webhook replay and cross-tenant delivery tests",
+    "Full Next.js production build completion (compile and TypeScript stages passed; page-data collection did not finish in this environment)",
+    "Post-merge verification against a real protected branch"
+  ]
+}

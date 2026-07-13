@@ -317,3 +317,7 @@ Remaining enterprise gates include:
 ## Next product milestone
 
 Sprint 7 will add the governed GitHub publication and independent release-verification plane: recreate the exact approved patch digest, push only a dedicated recovery branch through a least-privilege GitHub App, open a draft pull request, attach tamper-evident evidence, consume CI/check results and prevent merge until branch protection and human review requirements are satisfied. Production deployment and automatic merge remain out of scope.
+
+## Sprint 7: GitHub publication and recovery closure
+
+Sprint 7 adds a dedicated publication trust boundary. Human-approved Sprint 6 recovery packages are policy-checked, converted into deterministic Git publication records, published through a least-privilege GitHub App, monitored through CI and review, and closed only after post-merge verification. See `docs/architecture/github-publication-plane.md`.

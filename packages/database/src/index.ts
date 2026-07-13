@@ -5,3 +5,5 @@ export * from './sandbox-store.js';
 export * from './investigation-store.js';
 
 export * from './recovery-store.js';
+
+export * from './publication-store.js';

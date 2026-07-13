@@ -26,7 +26,8 @@
       "@codeer/security": ["packages/security/src/index.ts"],
       "@codeer/sandbox": ["packages/sandbox/src/index.ts"],
       "@codeer/ai": ["packages/ai/src/index.ts"],
-      "@codeer/recovery": ["packages/recovery/src/index.ts"]
+      "@codeer/recovery": ["packages/recovery/src/index.ts"],
+      "@codeer/publication": ["packages/publication/src/index.ts"]
     }
   }
 }

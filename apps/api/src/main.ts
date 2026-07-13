@@ -19,7 +19,15 @@ async function bootstrap(): Promise<void> {
   if (config.API_TRUST_PROXY) express.set('trust proxy', 1);
 
   app.use(helmet());
-  app.use(json({ limit: config.API_BODY_LIMIT, strict: true }));
+  app.use(
+    json({
+      limit: config.API_BODY_LIMIT,
+      strict: true,
+      verify: (request, _response, buffer) => {
+        (request as typeof request & { rawBody?: Buffer }).rawBody = Buffer.from(buffer);
+      },
+    }),
+  );
   app.use(urlencoded({ extended: false, limit: config.API_BODY_LIMIT, parameterLimit: 100 }));
   app.use(
     createRequestContextMiddleware({
