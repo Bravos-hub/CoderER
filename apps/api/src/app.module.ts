@@ -8,6 +8,7 @@ import { RepositoriesModule } from './repositories/repositories.module.js';
 import { ReproductionsModule } from './reproductions/reproductions.module.js';
 import { InvestigationsModule } from './investigations/investigations.module.js';
 import { RecoveriesModule } from './recoveries/recoveries.module.js';
+import { PublicationsModule } from './publications/publications.module.js';
 
 const config = loadApiConfig(process.env);
 
@@ -24,6 +25,7 @@ const config = loadApiConfig(process.env);
     ReproductionsModule,
     InvestigationsModule,
     RecoveriesModule,
+    PublicationsModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

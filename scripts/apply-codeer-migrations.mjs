@@ -72,6 +72,27 @@ const migrations = [
       'RecoveryCleanupRecord',
     ],
   },
+  {
+    id: '20260713000100_sprint7_publication',
+    file: '../packages/database/prisma/migrations/20260713000100_sprint7_publication/migration.sql',
+    requiredTables: [
+      'GithubInstallation',
+      'RepositoryPublicationPolicy',
+      'PublicationRun',
+      'PublicationEvent',
+      'PublishedCommit',
+      'PullRequestRecord',
+      'PublicationCheck',
+      'PublicationReview',
+      'PublicationReviewComment',
+      'RevisionRequest',
+      'MergeReadinessDecision',
+      'MergeObservation',
+      'PostMergeVerification',
+      'IncidentClosureRecord',
+      'GithubWebhookDelivery',
+    ],
+  },
 ];
 
 function checksum(content) {

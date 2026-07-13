@@ -157,7 +157,7 @@ services:
       MAX_GITHUB_BRANCHES: ${MAX_GITHUB_BRANCHES:-500}
       GITHUB_APP_ID: ${GITHUB_APP_ID:-}
       GITHUB_APP_PRIVATE_KEY: ${GITHUB_APP_PRIVATE_KEY:-}
-      GITHUB_APP_PRIVATE_KEY_FILE: ${GITHUB_APP_PRIVATE_KEY_FILE:-}
+      GITHUB_APP_PRIVATE_KEY_FILE: /run/secrets/github-app.pem
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
       SANDBOX_DEFAULT_IMAGE: ${SANDBOX_DEFAULT_IMAGE:-node:24-bookworm-slim}
       SANDBOX_HELPER_IMAGE: ${SANDBOX_HELPER_IMAGE:-node:24-bookworm-slim}
@@ -210,6 +210,7 @@ services:
       AI_STORE_PROVIDER_RESPONSES: ${AI_STORE_PROVIDER_RESPONSES:-false}
     volumes:
       - codeer-workspaces:/var/lib/codeer/workspaces
+      - '${GITHUB_APP_PRIVATE_KEY_FILE}:/run/secrets/github-app.pem:ro'
     depends_on:
       redis:
         condition: service_healthy

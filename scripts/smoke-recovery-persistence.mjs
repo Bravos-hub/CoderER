@@ -168,7 +168,7 @@ try {
           incidentId,
           investigationId,
           JSON.stringify([citation]),
-          sha256Hex('diagnosis'),
+          sha256Hex(`diagnosis:${investigationId}`),
         ],
       );
       await client.query(
@@ -192,7 +192,7 @@ try {
               mandatory: true,
             },
           ]),
-          sha256Hex('plan'),
+          sha256Hex(`plan:${planId}`),
         ],
       );
       await client.query(
@@ -318,7 +318,7 @@ try {
     status: PatchVersionStatus.ACCEPTED,
     baseCommitSha,
     unifiedDiff,
-    patchDigest: sha256Hex(unifiedDiff),
+    patchDigest: sha256Hex(`${unifiedDiff}:${created.id}`),
     changedFiles: 1,
     addedLines: 1,
     deletedLines: 1,
@@ -351,7 +351,7 @@ try {
             deletedLines: 1,
             treatmentPlanStep: 1,
             evidenceCitations: [citation],
-            contentHash: sha256Hex('hunk-content'),
+            contentHash: sha256Hex(`hunk-content:${hunkId}`),
           },
         ],
       },
@@ -381,7 +381,7 @@ try {
     summary: 'Independent review found the evidence-linked manifest patch within approved scope.',
     findings: [],
     reviewerModel: 'deterministic-smoke',
-    contentHash: sha256Hex('security-review'),
+    contentHash: sha256Hex(`security-review:${patchId}`),
     createdAt: new Date().toISOString(),
   };
   await workerStore.recordSecurityReview(organizationId, created.id, workerId, review);
@@ -419,7 +419,7 @@ try {
     ],
     summary: 'Original failure resolved and mandatory verification passed.',
     confidence: 0.99,
-    contentHash: sha256Hex('verification'),
+    contentHash: sha256Hex(`verification:${verificationId}`),
     createdAt: new Date().toISOString(),
   };
   await workerStore.recordVerification(organizationId, created.id, workerId, verification);
@@ -446,7 +446,7 @@ try {
     verificationSummary: 'Original failure resolved; mandatory build passed.',
     knownLimitations: [],
     rollbackInstructions: 'Revert the single manifest hunk and rerun the original reproduction.',
-    packageHash: sha256Hex('pr-package'),
+    packageHash: sha256Hex(`pr-package:${created.id}`),
     createdAt: new Date().toISOString(),
   };
   await workerStore.recordPullRequestPackage(organizationId, created.id, workerId, pkg);

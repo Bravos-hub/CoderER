@@ -79,12 +79,13 @@ export function createRequestContextMiddleware(options: RequestContextOptions) {
     response.setHeader('x-correlation-id', correlationId);
 
     const isHealthRequest = request.path.startsWith('/api/v1/health');
-    if (isHealthRequest) {
+    const isGithubWebhook = request.path.startsWith('/api/v1/webhooks/github');
+    if (isHealthRequest || isGithubWebhook) {
       request.codeerContext = {
         requestId,
         correlationId,
         organizationId: options.defaultOrganizationId,
-        actorId: 'codeer-health-check',
+        actorId: isGithubWebhook ? 'github-webhook-ingress' : 'codeer-health-check',
         actorType: ActorType.SYSTEM,
         actorRoles: [ActorRole.SERVICE],
         trustedContext: true,
