@@ -16,6 +16,17 @@ const booleanFromEnvironment = (defaultValue: 'true' | 'false' = 'false') =>
     .default(defaultValue)
     .transform((value) => value === 'true');
 
+/**
+ * Parses an optional environment string, treating an empty or whitespace-only
+ * value as unset. This lets `.env.example` list optional variables as blank
+ * without failing min-length validation during local development.
+ */
+const optionalEnvString = (min: number, max: number) =>
+  z.preprocess(
+    (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+    z.string().min(min).max(max).optional(),
+  );
+
 function containerImageRegistry(image: string): string {
   const first = image.split('/')[0] ?? '';
   if (
@@ -73,10 +84,10 @@ const tenancySchema = z.object({
 });
 
 const aiSchema = z.object({
-  OPENAI_API_KEY: z.string().trim().min(20).max(512).optional(),
+  OPENAI_API_KEY: optionalEnvString(20, 512),
   OPENAI_BASE_URL: z.string().url().default('https://api.openai.com/v1'),
-  OPENAI_ORGANIZATION: z.string().trim().min(1).max(255).optional(),
-  OPENAI_PROJECT: z.string().trim().min(1).max(255).optional(),
+  OPENAI_ORGANIZATION: optionalEnvString(1, 255),
+  OPENAI_PROJECT: optionalEnvString(1, 255),
   AI_ALLOWED_MODELS: z
     .string()
     .default('gpt-5.6')
@@ -238,7 +249,7 @@ const sandboxPolicySchema = z.object({
         .filter(Boolean),
     )
     .refine((value) => value.length > 0, 'At least one approved sandbox registry is required'),
-  SANDBOX_INSTALL_NETWORK: z.string().trim().min(1).max(128).optional(),
+  SANDBOX_INSTALL_NETWORK: optionalEnvString(1, 128),
   SANDBOX_INSTALL_ALLOWED_REGISTRIES: z
     .string()
     .default('')
@@ -260,8 +271,8 @@ const sandboxPolicySchema = z.object({
     )
     .refine((value) => value.length <= 100, 'At most 100 installation domains are allowed'),
   SANDBOX_ALLOW_INSTALL_SCRIPTS_OVERRIDE: booleanFromEnvironment('false'),
-  SANDBOX_WORKSPACE_VOLUME_DRIVER: z.string().trim().min(1).max(128).optional(),
-  SANDBOX_WORKSPACE_VOLUME_SIZE_OPTION: z.string().trim().min(1).max(128).optional(),
+  SANDBOX_WORKSPACE_VOLUME_DRIVER: optionalEnvString(1, 128),
+  SANDBOX_WORKSPACE_VOLUME_SIZE_OPTION: optionalEnvString(1, 128),
   SANDBOX_CPU_CORES: z.coerce.number().positive().max(16).default(1),
   SANDBOX_MEMORY_BYTES: z.coerce
     .number()
@@ -323,10 +334,10 @@ const apiSchema = baseSchema
       .default('1mb'),
     API_TRUST_PROXY: booleanFromEnvironment('false'),
     API_AUTH_MODE: z.enum(['disabled', 'api-key']).default('disabled'),
-    CODEER_API_KEY: z.string().min(32).max(512).optional(),
+    CODEER_API_KEY: optionalEnvString(32, 512),
     API_REQUIRE_SIGNED_CONTEXT: booleanFromEnvironment('false'),
-    REQUEST_CONTEXT_SIGNING_SECRET: z.string().min(32).max(512).optional(),
-    REQUEST_CONTEXT_SIGNING_SECRET_PREVIOUS: z.string().min(32).max(512).optional(),
+    REQUEST_CONTEXT_SIGNING_SECRET: optionalEnvString(32, 512),
+    REQUEST_CONTEXT_SIGNING_SECRET_PREVIOUS: optionalEnvString(32, 512),
     REQUEST_CONTEXT_MAX_AGE_SECONDS: z.coerce.number().int().min(30).max(900).default(300),
     CORS_ALLOWED_ORIGINS: z
       .string()
@@ -480,10 +491,10 @@ const workerSchema = baseSchema
     DEFAULT_ORGANIZATION_ID: z.string().uuid().default(DEFAULT_ORGANIZATION_ID),
     DEFAULT_ORGANIZATION_SLUG: z.string().min(1).default('local-development'),
     DEFAULT_ORGANIZATION_NAME: z.string().min(1).default('Local Development'),
-    GITHUB_APP_ID: z.string().trim().min(1).optional(),
-    GITHUB_APP_PRIVATE_KEY: z.string().trim().min(1).optional(),
-    GITHUB_APP_PRIVATE_KEY_FILE: z.string().trim().min(1).optional(),
-    GITHUB_TOKEN: z.string().trim().min(1).optional(),
+    GITHUB_APP_ID: optionalEnvString(1, 255),
+    GITHUB_APP_PRIVATE_KEY: optionalEnvString(1, 20000),
+    GITHUB_APP_PRIVATE_KEY_FILE: optionalEnvString(1, 2048),
+    GITHUB_TOKEN: optionalEnvString(1, 512),
     GITHUB_API_URL: z.string().url().default('https://api.github.com'),
     SANDBOX_EXECUTION_CONCURRENCY: z.coerce.number().int().positive().max(20).default(1),
     SANDBOX_EXECUTION_LEASE_MS: z.coerce
@@ -504,9 +515,9 @@ const workerSchema = baseSchema
       .min(60_000)
       .max(24 * 60 * 60 * 1000)
       .default(60 * 60 * 1000),
-    SANDBOX_DOCKER_HOST: z.string().trim().min(1).max(1024).optional(),
+    SANDBOX_DOCKER_HOST: optionalEnvString(1, 1024),
     SANDBOX_DOCKER_TLS_VERIFY: booleanFromEnvironment('false'),
-    SANDBOX_DOCKER_CERT_PATH: z.string().trim().min(1).max(1024).optional(),
+    SANDBOX_DOCKER_CERT_PATH: optionalEnvString(1, 1024),
     SANDBOX_COMMAND_OUTPUT_LIMIT_BYTES: z.coerce
       .number()
       .int()
