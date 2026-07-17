@@ -7,6 +7,82 @@ CodeER is an evidence-driven AI software emergency-response platform for enginee
 
 CodeER is being designed as a long-lived enterprise product, not as a disposable hackathon prototype. The Build Week submission is one delivery milestone inside a broader commercial architecture.
 
+## OpenAI Build Week development boundary
+
+CodeER existed as a product concept, brand and architecture before the OpenAI Build Week submission period. The implementation described in the competition submission was meaningfully developed or extended after July 13, 2026 at 9:00 AM Pacific Time.
+
+- Baseline commit: `d750442`
+- Baseline tag: `build-week-baseline` (create against `d750442` if not already present)
+- Build Week branch: `agent/sprint-7-github-publication`
+- Current Sprint 7 PR: `https://github.com/Bravos-hub/CoderER/pull/23`
+- Primary Codex session: supplied through the Devpost submission
+
+The submission evidence package lives in [`docs/submission`](docs/submission). It separates pre-existing work from Build Week additions, records Codex collaboration, explains GPT-5.6 product usage, and tracks judging access and final submission readiness.
+
+## What is CodeER?
+
+CodeER is a developer tool for engineering teams facing broken repositories, failing builds, configuration regressions and unverified AI-generated patches. It turns a failure into a bounded recovery workflow: reproduce the issue, collect evidence, diagnose the root cause, approve a treatment plan, apply a controlled repair, verify independently and prepare a reviewable pull request.
+
+CodeER is not a chatbot-only code generator. It is an evidence-driven recovery system with isolation, policy, human approval and verification gates around every security-sensitive step.
+
+## The recovery workflow
+
+```text
+CONNECT -> REPRODUCE -> DIAGNOSE -> APPROVE -> REPAIR -> VERIFY -> PACKAGE -> PUBLISH
+```
+
+For the Build Week demo, the intended judged path is one narrow vertical slice:
+
+```text
+broken demo repository
+  -> deterministic reproduction
+  -> bounded evidence package
+  -> GPT-5.6 cited diagnosis
+  -> human-approved treatment plan
+  -> isolated worktree patch
+  -> independent verification
+  -> pull-request package
+```
+
+The recommended primary incident is a frontend/backend API mismatch: the frontend calls `/api/users/profile`, while the backend exposes `/api/v1/profile`.
+
+## How Codex was used
+
+Codex was used as the main engineering collaborator for repository implementation, debugging, validation and release preparation. It inspected the existing system, applied Sprint changes, repaired regressions, wired migrations, ran gate suites, diagnosed Docker/PostgreSQL issues, validated GitHub App configuration and helped prepare the draft Sprint 7 pull request.
+
+Human decisions remained explicit: competition positioning, scope, safety boundaries, GitHub App configuration, the internal deadline, what remained open in Issue #22 and the final demo story.
+
+See [`docs/submission/codex-collaboration.md`](docs/submission/codex-collaboration.md).
+
+## How GPT-5.6 is used inside CodeER
+
+GPT-5.6 is used inside the product as the investigation and planning intelligence layer. It is configured through organization policy and is expected to produce structured, citation-valid outputs for triage, hypothesis generation, diagnosis, treatment planning, review and verification interpretation.
+
+The final demo must show GPT-5.6 as product functionality, not merely as a development assistant. Execution traces should preserve the configured model identifier, bounded evidence context, structured output, citations and usage metadata.
+
+See [`docs/submission/gpt-5-6-usage.md`](docs/submission/gpt-5-6-usage.md).
+
+## Build Week submission status
+
+- Track: Developer Tools
+- Submission title: CodeER - AI Emergency Response for Broken Software
+- Tagline: From failing build to verified recovery
+- Internal final submission deadline: July 21, 2026 at 9:00 PM EAT
+- External submission deadline: July 22, 2026 at 3:00 AM EAT
+- Judging availability target: through August 6, 2026 at 3:00 AM EAT
+
+Immediate submission docs:
+
+- [Build Week baseline](docs/submission/build-week-baseline.md)
+- [Build Week change log](docs/submission/build-week-change-log.md)
+- [Codex collaboration](docs/submission/codex-collaboration.md)
+- [GPT-5.6 usage](docs/submission/gpt-5-6-usage.md)
+- [Judging access](docs/submission/judging-access.md)
+- [Installation and testing](docs/submission/installation-and-testing.md)
+- [Submission architecture](docs/submission/architecture.md)
+- [Security and safety](docs/submission/security-and-safety.md)
+- [Submission checklist](docs/submission/submission-checklist.md)
+
 ## Operating principles
 
 1. **Evidence before action** - reproduce or identify the failure before changing code.

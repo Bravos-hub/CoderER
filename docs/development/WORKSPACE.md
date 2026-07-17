@@ -28,6 +28,8 @@ This monorepo is the implementation baseline for the Build Week MVP. It separate
 5. Generate Prisma Client with `npm run db:generate`.
 6. Run all applications with `npm run dev`.
 
+`npm run dev` loads `.env` automatically via `dotenv-cli`, and the configuration parser treats blank optional values as unset, so `.env.example` works out of the box for local development.
+
 Default URLs:
 
 - Web: `http://localhost:3000`
@@ -44,6 +46,27 @@ Public repositories can be admitted without credentials. Private repositories re
 2. Development-token mode: set `GITHUB_TOKEN`. This is a local-development fallback, not the intended production authentication model.
 
 Tokens are supplied to Git through environment-scoped configuration and are not placed in clone URLs or command arguments.
+
+## GitHub webhook forwarding
+
+GitHub App webhooks cannot reach a local development machine directly. Use the bundled `smee-client` to forward public webhook deliveries to the local API.
+
+1. Create a new channel at <https://smee.io/> (or reuse an existing one).
+2. Set `WEBHOOK_PROXY_URL` in `.env` to the smee channel URL.
+3. Configure the GitHub App's webhook URL to the same smee channel URL and set `GITHUB_WEBHOOK_SECRET`.
+4. Forward events to the local API in a separate terminal:
+
+```bash
+npm run proxy:github-webhook
+```
+
+Or, if you prefer the smee CLI directly:
+
+```bash
+npx smee -u "$WEBHOOK_PROXY_URL" -t http://localhost:4100/api/v1/webhooks/github
+```
+
+The controller at `POST /api/v1/webhooks/github` validates `X-Hub-Signature-256`, rejects replays and returns an accepted/duplicate response. Keep the proxy process running while testing webhooks; `npm run dev` does not start it automatically.
 
 ## Repository intake flow
 
