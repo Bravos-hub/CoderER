@@ -150,7 +150,21 @@ function judgeSessionHours(): number {
   return Math.min(parsed, 12);
 }
 
-export function createJudgeSession(username: string, password: string): JudgeLoginResult {
+const MIN_JUDGE_PASSWORD_LENGTH = 12;
+const MIN_SESSION_SECRET_LENGTH = 32;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Judge access fails closed: every deployment prerequisite must be present and
+ * well formed before credentials are even compared. Error messages are
+ * deliberately generic and never echo configuration values.
+ */
+function judgeAccessConfig(): {
+  expectedUsername: string;
+  expectedPassword: string;
+  organizationId: string;
+  secret: string;
+} {
   if (process.env.CODEER_JUDGE_ACCESS_ENABLED !== 'true') {
     throw new HumanAuthenticationError('Judge access is not enabled for this deployment.');
   }
@@ -158,10 +172,27 @@ export function createJudgeSession(username: string, password: string): JudgeLog
   const expectedPassword = process.env.CODEER_JUDGE_PASSWORD;
   const organizationId = process.env.CODEER_ORGANIZATION_ID;
   const secret = sessionSecret();
-  if (!expectedUsername || !expectedPassword || !organizationId || !secret) {
+  if (
+    !expectedUsername ||
+    !expectedPassword ||
+    expectedPassword.length < MIN_JUDGE_PASSWORD_LENGTH ||
+    !organizationId ||
+    !UUID_PATTERN.test(organizationId) ||
+    !secret ||
+    secret.length < MIN_SESSION_SECRET_LENGTH
+  ) {
     throw new HumanAuthenticationError('Judge access is not fully configured.');
   }
-  if (!safeEqual(username, expectedUsername) || !safeEqual(password, expectedPassword)) {
+  return { expectedUsername, expectedPassword, organizationId, secret };
+}
+
+export function createJudgeSession(username: string, password: string): JudgeLoginResult {
+  const config = judgeAccessConfig();
+  const normalizedUsername = username.trim();
+  if (
+    !safeEqual(normalizedUsername, config.expectedUsername) ||
+    !safeEqual(password, config.expectedPassword)
+  ) {
     throw new HumanAuthenticationError('Judge credentials are invalid.');
   }
   const issuedAt = Math.floor(Date.now() / 1_000);
@@ -171,8 +202,8 @@ export function createJudgeSession(username: string, password: string): JudgeLog
     session: {
       version: 1,
       sessionId: randomUUID(),
-      userId: expectedUsername,
-      organizationId,
+      userId: config.expectedUsername,
+      organizationId: config.organizationId,
       roles: [ActorRole.INCIDENT_COMMANDER],
       issuedAt,
       expiresAt: issuedAt + maxAgeSeconds,

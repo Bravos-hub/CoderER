@@ -41,6 +41,14 @@ CODEER_JUDGE_SESSION_HOURS=8
 
 The judge session is a signed human `USER` session with `INCIDENT_COMMANDER` role only. It does not grant organization-owner privileges or infrastructure credentials.
 
+Deployment wiring and hardening (Sprint 9 release branch):
+
+- `docker-compose.yml` forwards all four `CODEER_JUDGE_*` variables (plus `CODEER_USER_SESSION_SECRET`) into the `web` container; judge login previously failed in the Compose `app` profile because they were missing.
+- Judge access fails closed: disabled by default, and rejected at login unless the session secret is ≥32 characters, the password is ≥12 characters, and the organization id is a valid UUID. Session lifetime is clamped to a 12-hour maximum.
+- The login endpoint returns `Cache-Control: no-store`, rejects bodies over 2 KiB, enforces a same-origin check in production, and applies an in-process limiter (5 failed attempts per IP per 10 minutes, 30 failed attempts globally per 10 minutes; a successful login clears the per-IP count). The limiter is process-local — a multi-instance deployment must move throttling to Redis, an identity provider or the edge proxy.
+- Every attempt emits one structured audit record (timestamp, outcome, request id, hashed IP, actor id on success). Passwords are never logged.
+- Verify after deployment: the judge can operate the demo workflow but cannot open organization settings or administration views.
+
 Full runbook: `docs/submission/demo-runbook.md`.
 
 ## Local Evaluation
