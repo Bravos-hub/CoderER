@@ -1,4 +1,4 @@
-FROM node:24-bookworm-slim AS build
+FROM node:26-bookworm-slim AS build
 WORKDIR /workspace
 ENV npm_config_audit=false npm_config_fund=false npm_config_registry=https://registry.npmjs.org npm_config_replace_registry_host=always
 COPY package.json package-lock.json ./
@@ -47,7 +47,7 @@ RUN npm run build -w @codeer/contracts \
   && npm run build -w @codeer/worker \
   && npm prune --omit=dev
 
-FROM node:24-bookworm-slim AS runtime
+FROM node:26-bookworm-slim AS runtime
 ENV NODE_ENV=production
 WORKDIR /workspace
 RUN apt-get update \
