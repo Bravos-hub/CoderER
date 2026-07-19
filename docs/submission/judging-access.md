@@ -19,12 +19,29 @@ Verify access from an account that is not already a repository member.
 
 ## Demo Access
 
-- Hosted demo URL: TODO
-- Demo account: TODO
-- Demo password delivery method: TODO: do not commit secrets.
-- Seeded broken repository: TODO
-- Reset incident button or reset instructions: TODO
-- Read-only replay fallback: TODO
+- Hosted demo URL: set in the Devpost draft only while the Cloudflare tunnel is active.
+- Demo account: runtime-configured judge user via `/judge`.
+- Demo password delivery method: private Devpost/judge channel only; do not commit credentials.
+- Seeded broken repository: `CodeER/sandbox-broken-repo` from `test/fixtures/sandbox-broken-repo`.
+- Frozen incident: `ER-20260719-DEMO` / `00000000-0000-4000-8000-000000290004`.
+- Reset command: `npm run demo:reset`.
+- Startup command: `npm run demo:start`.
+- HTTPS tunnel command: `npm run demo:tunnel`.
+- Read-only replay fallback: open `/incidents/00000000-0000-4000-8000-000000290004` after reset.
+
+Judge runtime variables:
+
+```bash
+CODEER_USER_SESSION_SECRET=<32+ character random secret>
+CODEER_JUDGE_ACCESS_ENABLED=true
+CODEER_JUDGE_USERNAME=<delivered privately>
+CODEER_JUDGE_PASSWORD=<delivered privately>
+CODEER_JUDGE_SESSION_HOURS=8
+```
+
+The judge session is a signed human `USER` session with `INCIDENT_COMMANDER` role only. It does not grant organization-owner privileges or infrastructure credentials.
+
+Full runbook: `docs/submission/demo-runbook.md`.
 
 ## Local Evaluation
 
@@ -37,12 +54,15 @@ npm run infra:up
 npm run db:migrate:all
 npm run db:provision:runtime
 npm run db:verify:roles
-npm run dev
+npm run demo:reset
+npm run demo:start
 ```
 
 Open:
 
+- Judge login: `http://localhost:3000/judge`
 - Command centre: `http://localhost:3000/incidents`
+- Primary incident: `http://localhost:3000/incidents/00000000-0000-4000-8000-000000290004`
 - API readiness: `http://localhost:4100/api/v1/health/ready`
 
 ## Webhook Testing

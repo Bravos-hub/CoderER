@@ -24,13 +24,13 @@ Internal final submission deadline: July 21, 2026 at 9:00 PM EAT.
 
 ## Product Demo
 
-- [ ] Primary demo incident locked.
-- [ ] Demo repository prepared.
-- [ ] One-click or scripted reset prepared.
+- [x] Primary demo incident locked.
+- [x] Demo repository prepared.
+- [x] One-click or scripted reset prepared.
 - [ ] GPT-5.6 trace captured from the real vertical slice.
 - [ ] Controlled repair path verified end to end.
 - [ ] Pull-request package shown in UI.
-- [ ] Read-only replay fallback prepared.
+- [x] Read-only replay fallback prepared.
 
 ## GitHub Publication Gates
 

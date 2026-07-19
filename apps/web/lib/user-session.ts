@@ -1,9 +1,9 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import type { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { ActorRole, ActorType } from '@codeer/contracts';
 
-const SESSION_COOKIE = 'codeer_user_session';
+export const SESSION_COOKIE = 'codeer_user_session';
 const MAX_SESSION_SECONDS = 12 * 60 * 60;
 const CLOCK_SKEW_SECONDS = 60;
 
@@ -49,6 +49,11 @@ export interface HumanActorContext {
   actorId: string;
   actorType: ActorType.USER;
   actorRoles: ActorRole[];
+}
+
+export interface JudgeLoginResult {
+  session: CodeerUserSession;
+  maxAgeSeconds: number;
 }
 
 export class HumanAuthenticationError extends Error {
@@ -131,4 +136,46 @@ export function resolveHumanActor(request: NextRequest): HumanActorContext {
   const fallback = developmentActor();
   if (fallback) return fallback;
   throw new HumanAuthenticationError();
+}
+
+function safeEqual(left: string, right: string): boolean {
+  const leftBuffer = Buffer.from(left, 'utf8');
+  const rightBuffer = Buffer.from(right, 'utf8');
+  return leftBuffer.length === rightBuffer.length && timingSafeEqual(leftBuffer, rightBuffer);
+}
+
+function judgeSessionHours(): number {
+  const parsed = Number(process.env.CODEER_JUDGE_SESSION_HOURS ?? 8);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 8;
+  return Math.min(parsed, 12);
+}
+
+export function createJudgeSession(username: string, password: string): JudgeLoginResult {
+  if (process.env.CODEER_JUDGE_ACCESS_ENABLED !== 'true') {
+    throw new HumanAuthenticationError('Judge access is not enabled for this deployment.');
+  }
+  const expectedUsername = process.env.CODEER_JUDGE_USERNAME;
+  const expectedPassword = process.env.CODEER_JUDGE_PASSWORD;
+  const organizationId = process.env.CODEER_ORGANIZATION_ID;
+  const secret = sessionSecret();
+  if (!expectedUsername || !expectedPassword || !organizationId || !secret) {
+    throw new HumanAuthenticationError('Judge access is not fully configured.');
+  }
+  if (!safeEqual(username, expectedUsername) || !safeEqual(password, expectedPassword)) {
+    throw new HumanAuthenticationError('Judge credentials are invalid.');
+  }
+  const issuedAt = Math.floor(Date.now() / 1_000);
+  const maxAgeSeconds = Math.floor(judgeSessionHours() * 60 * 60);
+  return {
+    maxAgeSeconds,
+    session: {
+      version: 1,
+      sessionId: randomUUID(),
+      userId: expectedUsername,
+      organizationId,
+      roles: [ActorRole.INCIDENT_COMMANDER],
+      issuedAt,
+      expiresAt: issuedAt + maxAgeSeconds,
+    },
+  };
 }

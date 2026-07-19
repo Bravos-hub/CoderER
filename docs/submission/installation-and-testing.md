@@ -34,6 +34,34 @@ Open:
 - API liveness: `http://localhost:4100/api/v1/health`
 - API readiness: `http://localhost:4100/api/v1/health/ready`
 
+## Deterministic Competition Demo
+
+Reset the frozen demo scenario:
+
+```bash
+npm run demo:reset
+```
+
+Start the demo stack:
+
+```bash
+npm run demo:start
+```
+
+Open:
+
+- Judge login: `http://localhost:3000/judge`
+- Primary incident: `http://localhost:3000/incidents/00000000-0000-4000-8000-000000290004`
+- Publications: `http://localhost:3000/publications`
+
+For a temporary public HTTPS URL while the local stack is running:
+
+```bash
+npm run demo:tunnel
+```
+
+Do not commit judge credentials or tunnel URLs. Use `docs/submission/demo-runbook.md` for the complete competition demo procedure.
+
 ## Core Gates
 
 ```bash
