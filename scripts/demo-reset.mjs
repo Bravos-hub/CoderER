@@ -21,14 +21,49 @@ const demoRepositoryPath = path.join(demoRepositoryRoot, 'primary');
 const databaseUrl = process.env.DATABASE_ADMIN_URL ?? process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error('DATABASE_ADMIN_URL or DATABASE_URL is required.');
 
-if (
-  process.env.NODE_ENV === 'production' &&
-  process.env.CODEER_DEMO_RESET_ALLOW_PRODUCTION !== 'true'
-) {
-  throw new Error(
-    'demo:reset refuses to run with NODE_ENV=production unless CODEER_DEMO_RESET_ALLOW_PRODUCTION=true.',
-  );
+const FROZEN_DEMO_ORGANIZATION_ID = '00000000-0000-4000-8000-000000000001';
+
+/**
+ * demo:reset disables immutable-table triggers while reseeding, so a single
+ * environment Boolean is not enough. It requires an explicit multi-token
+ * opt-in and only ever targets the frozen competition tenant on an
+ * allowlisted local/demo database.
+ */
+function assertDemoResetSafety(url) {
+  if (process.env.CODEER_DEMO_RESET_ENABLED !== 'true') {
+    throw new Error('demo:reset requires CODEER_DEMO_RESET_ENABLED=true.');
+  }
+  if (process.env.CODEER_DEMO_RESET_CONFIRMATION !== 'RESET-COMPETITION-DEMO') {
+    throw new Error('demo:reset requires CODEER_DEMO_RESET_CONFIRMATION=RESET-COMPETITION-DEMO.');
+  }
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error('demo:reset could not parse the database URL.');
+  }
+  const allowedHosts = (
+    process.env.CODEER_DEMO_RESET_ALLOWED_HOSTS ?? 'localhost,127.0.0.1,postgres'
+  )
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  if (!allowedHosts.includes(parsed.hostname)) {
+    throw new Error(`demo:reset refuses unknown database host: ${parsed.hostname}`);
+  }
+  const databaseName = parsed.pathname.replace(/^\//, '');
+  const allowedDatabases = (
+    process.env.CODEER_DEMO_RESET_ALLOWED_DATABASES ?? 'codeer,codeer_demo,codeer_test'
+  )
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  if (!allowedDatabases.includes(databaseName)) {
+    throw new Error(`demo:reset refuses unknown database name: ${databaseName}`);
+  }
 }
+
+assertDemoResetSafety(databaseUrl);
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -45,6 +80,11 @@ function configuredOrganizationId() {
 }
 
 const ORGANIZATION_ID = configuredOrganizationId();
+if (ORGANIZATION_ID !== FROZEN_DEMO_ORGANIZATION_ID) {
+  throw new Error(
+    `demo:reset only targets the frozen competition tenant (${FROZEN_DEMO_ORGANIZATION_ID}); refusing ${ORGANIZATION_ID}.`,
+  );
+}
 const ORGANIZATION_SLUG =
   process.env.CODEER_DEMO_ORGANIZATION_SLUG ??
   process.env.DEFAULT_ORGANIZATION_SLUG ??
@@ -146,9 +186,9 @@ const demo = {
   name: 'sandbox-broken-repo',
   fullName: 'CodeER/sandbox-broken-repo',
   requestedUrl:
-    'https://github.com/Bravos-hub/CoderER/tree/agent/sprint-9-release-certification/test/fixtures/sandbox-broken-repo',
+    'https://github.com/Bravos-hub/CoderER/tree/d1da589436fbd147441fc276402b3762b7b63019/test/fixtures/sandbox-broken-repo',
   htmlUrl:
-    'https://github.com/Bravos-hub/CoderER/tree/agent/sprint-9-release-certification/test/fixtures/sandbox-broken-repo',
+    'https://github.com/Bravos-hub/CoderER/tree/d1da589436fbd147441fc276402b3762b7b63019/test/fixtures/sandbox-broken-repo',
   shortCode: 'ER-20260719-DEMO',
   actorId: 'competition-demo-seed',
   judgeActorId: 'judge@codeer.local',
@@ -156,6 +196,17 @@ const demo = {
   correlationId: 'demo-primary-incident-20260719',
   installationId: '290043',
 };
+
+/**
+ * Every seeded record carries this provenance marker so the frozen replay can
+ * never be mistaken for live provider (GitHub/OpenAI) execution. Real provider
+ * traces must use `evidenceMode: 'LIVE_PROVIDER'` with verified request ids.
+ */
+const DEMO_PROVENANCE = Object.freeze({
+  evidenceMode: 'SEEDED_DETERMINISTIC_REPLAY',
+  generatedBy: 'scripts/demo-reset.mjs',
+  providerExecution: false,
+});
 
 const baseTime = new Date('2026-07-19T09:00:00.000Z');
 
@@ -588,6 +639,7 @@ function evidence(
   sensitivity = 'INTERNAL',
   minute = 10,
 ) {
+  const enrichedPayload = { ...payload, provenance: DEMO_PROVENANCE };
   return {
     id,
     organizationId: ORGANIZATION_ID,
@@ -598,10 +650,10 @@ function evidence(
     sensitivity,
     title,
     summary,
-    payload,
+    payload: enrichedPayload,
     contentType: 'application/json',
-    byteSize: byteSize(payload),
-    digest: digestPayload(payload),
+    byteSize: byteSize(enrichedPayload),
+    digest: digestPayload(enrichedPayload),
     redacted: false,
     redactionCount: 0,
     origin: 'competition-demo-reset',
@@ -1701,8 +1753,8 @@ async function seedAgentRunsAndTraces(client) {
         ORGANIZATION_ID,
         ids.investigation,
         agentRunId,
-        `req_demo_${index + 1}`,
-        `resp_demo_${index + 1}`,
+        `seeded-replay:req_demo_${index + 1}`,
+        `seeded-replay:resp_demo_${index + 1}`,
         digestPayload({ system: agentKind }),
         digestPayload({ inputClassification: 'redacted-incident-evidence', agentKind }),
         digestPayload({ outputClassification: 'internal-structured-analysis', agentKind }),
@@ -1843,7 +1895,7 @@ async function seedRecovery(
        "outputTokens","reasoningTokens","estimatedCostUsd","durationMs","startedAt",
        "completedAt","createdAt"
      ) VALUES ($1,$2,'REPAIR','COMPLETED','gpt-5.6','2026-07-19',
-       'codeer.recovery.patch',$3,$4,'req_demo_recovery','resp_demo_recovery',4200,0,780,220,
+       'codeer.recovery.patch',$3,$4,'seeded-replay:req_demo_recovery','seeded-replay:resp_demo_recovery',4200,0,780,220,
        0.0062,1700,$5,$6,$5)`,
     [
       ids.recoveryAgent,
@@ -2154,7 +2206,7 @@ async function seedPublication(
        "baseCommitSha","approvedPatchVersion","patchDigest","expectedTreeDigest","treeSha",
        "commitSha","pullRequestNumber","pullRequestUrl","idempotencyKey","attemptCount",
        "startedAt","completedAt","createdAt","updatedAt"
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,'CLOSED',7,'demo-publication-v1','main',$8,$9,1,$10,$11,$12,$13,29,$14,'demo:publication:primary',1,$15,$16,$15,$16)`,
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,'CLOSED',7,'demo-publication-v1','main',$8,$9,1,$10,$11,$12,$13,NULL,NULL,'demo:publication:primary',1,$14,$15,$14,$15)`,
     [
       ids.publication,
       ORGANIZATION_ID,
@@ -2169,7 +2221,6 @@ async function seedPublication(
       sha256(`expected-tree:${patchDigest}`),
       treeSha,
       recoveryHeadSha,
-      'https://github.com/Bravos-hub/CoderER/pull/29',
       at(78),
       at(85),
     ],
@@ -2178,7 +2229,11 @@ async function seedPublication(
   const publicationEvents = [
     ['PUBLICATION_REQUESTED', { recoveryId: ids.recovery, patchVersion: 1 }, 78],
     ['POLICY_CHECK_PASSED', { policyVersion: 'demo-publication-v1' }, 79],
-    ['DRAFT_PR_CREATED', { pullRequestNumber: 29 }, 80],
+    [
+      'DRAFT_PR_CREATED',
+      { displayReference: 'Seeded publication replay', providerMode: 'SEEDED_REPLAY' },
+      80,
+    ],
     ['CHECKS_PASSED', { requiredChecks: ['test:evaluation:publication'] }, 81],
     ['REVIEW_APPROVED', { reviewer: 'competition-demo-reviewer' }, 82],
     ['MERGE_OBSERVED', { mergeCommitSha }, 83],
@@ -2188,11 +2243,12 @@ async function seedPublication(
   for (const [index, [type, payload, minute]] of publicationEvents.entries()) {
     const sequence = index + 1;
     const occurredAt = at(minute);
+    const enrichedPayload = { ...payload, provenance: DEMO_PROVENANCE };
     const eventHash = chainedHash({
       publicationId: ids.publication,
       sequence,
       type,
-      payload,
+      payload: enrichedPayload,
       previousHash,
       occurredAt,
     });
@@ -2206,7 +2262,7 @@ async function seedPublication(
         ids.publication,
         sequence,
         type,
-        canonicalJson(payload),
+        canonicalJson(enrichedPayload),
         previousHash,
         eventHash,
         demo.actorId,
@@ -2237,11 +2293,11 @@ async function seedPublication(
     `INSERT INTO "PullRequestRecord" (
        "id","publicationId","number","nodeId","url","title","bodyDigest","baseBranch",
        "headBranch","draft","state","headSha","baseSha","createdAt","updatedAt"
-     ) VALUES ($1,$2,29,'PR_demo_29',$3,'Fix deterministic demo fixture failure',$4,'main',$5,FALSE,'merged',$6,$7,$8,$9)`,
+     ) VALUES ($1,$2,0,'PR_seeded_replay',$3,'Fix deterministic demo fixture failure',$4,'main',$5,FALSE,'merged',$6,$7,$8,$9)`,
     [
       ids.pullRequestRecord,
       ids.publication,
-      'https://github.com/Bravos-hub/CoderER/pull/29',
+      'seed://codeer.demo/publication/primary/pull-request',
       packageHash,
       'codeer/demo/primary-fixture-recovery',
       recoveryHeadSha,
@@ -2258,7 +2314,7 @@ async function seedPublication(
     [
       ids.publicationCheck,
       ids.publication,
-      'https://github.com/Bravos-hub/CoderER/actions/runs/demo',
+      'seed://codeer.demo/publication/primary/checks/test-evaluation-publication',
       recoveryHeadSha,
       at(80),
       at(81),
