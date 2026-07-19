@@ -91,6 +91,10 @@ CODEER_JUDGE_SESSION_HOURS=8
 
 The `/judge` page creates a signed `USER` session with role `INCIDENT_COMMANDER`.
 
+The Compose `app` profile forwards these variables into the `web` container, so the same `.env` file drives local and containerized judging.
+
+The endpoint is hardened for a temporary competition account: it fails closed on weak configuration (secret <32 characters, password <12 characters, invalid organization UUID), clamps sessions to 12 hours, returns `Cache-Control: no-store`, rejects oversized bodies, enforces a same-origin check in production, and rate limits failed attempts (5 per IP per 10 minutes, 30 globally per 10 minutes, in-process). Every attempt writes a structured audit record without the password. For a multi-instance deployment, move throttling to Redis or an identity provider.
+
 The judge role can read and operate the demo workflow, including treatment-plan and publication decisions. It does not receive `ORGANIZATION_OWNER`, `ORGANIZATION_ADMIN`, `SERVICE`, private keys, GitHub App private keys, database credentials, Redis credentials or infrastructure credentials.
 
 Removal procedure:
