@@ -59,6 +59,7 @@
     "test:evaluation:recovery": "tsx scripts/evaluate-recovery-engine.ts",
     "db:validate:recovery-static": "node scripts/validate-recovery-migration.mjs",
     "db:validate:publication-static": "node scripts/validate-publication-migration.mjs",
+    "release:verify-workflows": "node scripts/verify-release-workflows.mjs",
     "test:evaluation:publication": "vitest run packages/publication/src/index.spec.ts",
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install chromium"
