@@ -15,7 +15,6 @@ import { EmptyState, ErrorState, LoadingState } from '../ui/data-state';
 import { StatusBadge } from '../ui/status';
 
 type InvestigationDetail = { investigation: Investigation; treatmentPlans: TreatmentPlan[] };
-type RecoveryDetail = { recovery: RecoveryRun };
 type PendingPlan = TreatmentPlan & { incidentId: string };
 
 export function ApprovalInbox() {
