@@ -292,16 +292,21 @@ async function publishOutbox(): Promise<void> {
 }
 
 const outboxTimer = setInterval(() => void publishOutbox(), config.OUTBOX_POLL_INTERVAL_MS);
+const reconcileSafely = (name: string, reconcile: () => Promise<void>): void => {
+  void reconcile().catch((error: unknown) => {
+    logger.error({ error, reconciler: name }, 'Background reconciliation failed');
+  });
+};
 const sandboxReconcileTimer = setInterval(
-  () => void sandboxRuntime.reconcile(),
+  () => reconcileSafely('sandbox', () => sandboxRuntime.reconcile()),
   config.SANDBOX_RECONCILE_INTERVAL_MS,
 );
 const investigationReconcileTimer = setInterval(
-  () => void investigationRuntime.reconcile(),
+  () => reconcileSafely('investigation', () => investigationRuntime.reconcile()),
   config.AI_INVESTIGATION_RECONCILE_INTERVAL_MS,
 );
 const controlledRecoveryReconcileTimer = setInterval(
-  () => void controlledRecoveryRuntime.reconcile(),
+  () => reconcileSafely('controlled-recovery', () => controlledRecoveryRuntime.reconcile()),
   config.RECOVERY_RECONCILE_INTERVAL_MS,
 );
 outboxTimer.unref();
@@ -309,9 +314,9 @@ sandboxReconcileTimer.unref();
 investigationReconcileTimer.unref();
 controlledRecoveryReconcileTimer.unref();
 void publishOutbox();
-void sandboxRuntime.reconcile();
-void investigationRuntime.reconcile();
-void controlledRecoveryRuntime.reconcile();
+reconcileSafely('sandbox', () => sandboxRuntime.reconcile());
+reconcileSafely('investigation', () => investigationRuntime.reconcile());
+reconcileSafely('controlled-recovery', () => controlledRecoveryRuntime.reconcile());
 
 for (const worker of [
   controlledRecoveryRuntime.worker,

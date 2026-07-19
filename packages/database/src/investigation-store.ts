@@ -610,6 +610,30 @@ export class InvestigationStore {
     );
   }
 
+  async listOrganizationInvestigations(
+    organizationId: string,
+    query: InvestigationListQuery,
+  ): Promise<{ items: Investigation[]; nextCursor: null }> {
+    return await withTransaction(
+      async (client) => {
+        const values: unknown[] = [organizationId, query.limit];
+        const statusSql = query.status ? `AND r."status"=$3::"InvestigationStatus"` : '';
+        if (query.status) values.push(query.status);
+        const rows = await queryMany<InvestigationRow>(
+          client,
+          `SELECT r.*,p."policyVersion" FROM "InvestigationRun" r
+             JOIN "OrganizationAiPolicy" p ON p."id"=r."aiPolicyId"
+            WHERE r."organizationId"=$1 ${statusSql}
+            ORDER BY r."createdAt" DESC,r."id" DESC LIMIT $2`,
+          values,
+        );
+        return { items: rows.map(mapInvestigation), nextCursor: null };
+      },
+      { tenantOrganizationId: organizationId },
+      this.pool,
+    );
+  }
+
   async getInvestigation(organizationId: string, investigationId: string): Promise<Investigation> {
     return await withTransaction(
       (client) => this.getInvestigationInTransaction(client, organizationId, investigationId),

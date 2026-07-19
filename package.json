@@ -56,10 +56,14 @@
     "test:evaluation:recovery": "tsx scripts/evaluate-recovery-engine.ts",
     "db:validate:recovery-static": "node scripts/validate-recovery-migration.mjs",
     "db:validate:publication-static": "node scripts/validate-publication-migration.mjs",
-    "test:evaluation:publication": "vitest run packages/publication/src/index.spec.ts"
+    "test:evaluation:publication": "vitest run packages/publication/src/index.spec.ts",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install chromium"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.12.1",
     "@eslint/js": "10.0.1",
+    "@playwright/test": "1.61.1",
     "@types/node": "26.1.1",
     "concurrently": "10.0.3",
     "dotenv-cli": "^11.0.0",

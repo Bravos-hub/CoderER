@@ -432,8 +432,26 @@ model Organization {
   recoveryPolicies OrganizationRecoveryPolicy[]
   recoveryRuns RecoveryRun[]
   recoveryPublicationApprovals RecoveryPublicationApproval[]
+  settings       OrganizationSetting[]
   createdAt      DateTime                   @default(now())
   updatedAt      DateTime                   @updatedAt
+}
+
+model OrganizationSetting {
+  id             String       @id @default(uuid())
+  organizationId String
+  kind           String
+  version        Int
+  enforcement    String
+  description    String
+  configuration  Json
+  contentHash    String
+  createdBy      String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@unique([organizationId, kind, version])
+  @@index([organizationId, kind, createdAt(sort: Desc)])
 }
 
 model Repository {

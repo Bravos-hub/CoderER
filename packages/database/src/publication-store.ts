@@ -282,6 +282,23 @@ export class PublicationStore {
     );
   }
 
+  async listOrganization(organizationId: string, limit = 100): Promise<PublicationRun[]> {
+    return withTransaction(
+      async (client) => {
+        const rows = await queryMany<PublicationRow>(
+          client,
+          `SELECT p.*, gi."installationId"::text AS "installationExternalId"
+           FROM "PublicationRun" p JOIN "GithubInstallation" gi ON gi."id"=p."installationId"
+           WHERE p."organizationId"=$1 ORDER BY p."createdAt" DESC LIMIT $2`,
+          [organizationId, Math.min(Math.max(limit, 1), 100)],
+        );
+        return rows.map(mapPublication);
+      },
+      { tenantOrganizationId: organizationId },
+      this.pool,
+    );
+  }
+
   async listEvents(organizationId: string, publicationId: string) {
     return withTransaction(
       async (client) =>

@@ -1621,3 +1621,38 @@ export type ControlledRecoveryJob = z.infer<typeof ControlledRecoveryJobSchema>;
 export const CONTROLLED_RECOVERY_QUEUE = 'codeer-controlled-recovery';
 export const CONTROLLED_RECOVERY_JOB = 'recovery.execute';
 export const CONTROLLED_RECOVERY_OUTBOX_TOPIC = 'recovery.requested';
+
+export enum OrganizationSettingKind {
+  ORGANIZATION = 'ORGANIZATION',
+  AI = 'AI',
+  RECOVERY = 'RECOVERY',
+  PUBLICATION = 'PUBLICATION',
+  SECURITY = 'SECURITY',
+}
+
+export enum OrganizationSettingEnforcement {
+  ENFORCED = 'ENFORCED',
+  MONITOR = 'MONITOR',
+}
+
+export const OrganizationSettingSchema = z.object({
+  id: UuidSchema,
+  organizationId: UuidSchema,
+  kind: z.nativeEnum(OrganizationSettingKind),
+  version: z.number().int().positive(),
+  enforcement: z.nativeEnum(OrganizationSettingEnforcement),
+  description: z.string().trim().min(3).max(5_000),
+  configuration: z.record(z.string(), z.unknown()),
+  contentHash: z.string().regex(/^[0-9a-f]{64}$/),
+  createdBy: z.string().min(1).max(255),
+  createdAt: z.string().datetime(),
+});
+export type OrganizationSetting = z.infer<typeof OrganizationSettingSchema>;
+
+export const SaveOrganizationSettingSchema = z.object({
+  expectedVersion: z.number().int().nonnegative(),
+  enforcement: z.nativeEnum(OrganizationSettingEnforcement),
+  description: z.string().trim().min(3).max(5_000),
+  configuration: z.record(z.string(), z.unknown()).default({}),
+});
+export type SaveOrganizationSettingInput = z.infer<typeof SaveOrganizationSettingSchema>;

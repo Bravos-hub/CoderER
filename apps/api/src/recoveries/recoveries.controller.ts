@@ -19,6 +19,11 @@ import { RecoveriesService } from './recoveries.service.js';
 export class RecoveriesController {
   constructor(private readonly recoveries: RecoveriesService) {}
 
+  @Get()
+  list(@Req() request: Request, @Query() query: Record<string, unknown>) {
+    return this.recoveries.listOrganization(requestContext(request), query);
+  }
+
   @Get(':recoveryId')
   get(
     @Req() request: Request,

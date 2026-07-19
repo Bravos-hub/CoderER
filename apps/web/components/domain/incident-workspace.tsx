@@ -2,23 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { incidentSections } from '../../lib/navigation';
-import { JsonInspector } from './json-inspector';
-
-const endpointFor = (incidentId: string, section: string) => {
-  const map: Record<string, string> = {
-    overview: `incidents/${incidentId}`,
-    evidence: `incidents/${incidentId}`,
-    triage: `incidents/${incidentId}`,
-    reproduction: `incidents/${incidentId}/reproductions`,
-    investigation: `incidents/${incidentId}/investigations`,
-    'treatment-plan': `incidents/${incidentId}/treatment-plans`,
-    recovery: `incidents/${incidentId}/recoveries`,
-    verification: `incidents/${incidentId}/recoveries`,
-    publication: `incidents/${incidentId}/recoveries`,
-    activity: `incidents/${incidentId}`,
-  };
-  return map[section] ?? `incidents/${incidentId}`;
-};
+import { IncidentSectionContent } from './incident-section-content';
 
 export function IncidentWorkspace({
   incidentId,
@@ -41,22 +25,7 @@ export function IncidentWorkspace({
           </Link>
         ))}
       </nav>
-      <section className="incidentWorkspaceGrid">
-        <JsonInspector
-          endpoint={endpointFor(incidentId, section)}
-          title={section.replaceAll('-', ' ')}
-        />
-        <aside className="panel actionPanel">
-          <p className="eyebrow">NEXT HUMAN ACTION</p>
-          <h2>Review current state</h2>
-          <p>
-            All actions remain server-authorized. Versioned approvals and destructive operations
-            require an explicit confirmation.
-          </p>
-          <button>Refresh evidence</button>
-          <button className="secondary">Open audit history</button>
-        </aside>
-      </section>
+      <IncidentSectionContent incidentId={incidentId} section={section} />
     </>
   );
 }

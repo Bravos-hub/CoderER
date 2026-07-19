@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, Req } from '@nestjs/common';
 import type { Request } from 'express';
 import { requestContext } from '../security/request-context.middleware.js';
 import { PublicationsService } from './publications.service.js';
@@ -6,6 +6,11 @@ import { PublicationsService } from './publications.service.js';
 @Controller('publications')
 export class PublicationsController {
   constructor(private readonly publications: PublicationsService) {}
+
+  @Get()
+  list(@Req() request: Request, @Query('limit') limit?: string) {
+    return this.publications.listOrganization(requestContext(request), limit);
+  }
 
   @Get(':publicationId')
   get(

@@ -52,6 +52,15 @@ export class PublicationsService implements OnModuleDestroy {
     return this.store.listForRecovery(context.organizationId, recoveryId);
   }
 
+  async listOrganization(context: CodeerRequestContext, rawLimit?: string) {
+    this.authorize(context, IncidentPermission.READ_PUBLICATION);
+    const limit = rawLimit ? Number(rawLimit) : 100;
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+      throw new BadRequestException('Publication limit must be an integer from 1 to 100.');
+    }
+    return this.store.listOrganization(context.organizationId, limit);
+  }
+
   async get(context: CodeerRequestContext, publicationId: string) {
     this.authorize(context, IncidentPermission.READ_PUBLICATION);
     try {

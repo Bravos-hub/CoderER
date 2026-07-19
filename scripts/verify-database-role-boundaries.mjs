@@ -84,7 +84,7 @@ try {
     workerClient.release();
   }
 
-  const recoveryTables = [
+  const tenantTables = [
     'OrganizationRecoveryPolicy',
     'RecoveryRun',
     'RecoveryCheckpoint',
@@ -101,20 +101,21 @@ try {
     'RecoveryPublicationApproval',
     'RecoveryPullRequestPackage',
     'RecoveryCleanupRecord',
+    'OrganizationSetting',
   ];
   const rls = await admin.query(
     `SELECT c.relname, c.relrowsecurity, c.relforcerowsecurity
        FROM pg_class c
        JOIN pg_namespace n ON n.oid=c.relnamespace
       WHERE n.nspname='public' AND c.relname=ANY($1::text[])`,
-    [recoveryTables],
+    [tenantTables],
   );
-  if (rls.rowCount !== recoveryTables.length) {
-    throw new Error('One or more controlled-recovery tables are missing.');
+  if (rls.rowCount !== tenantTables.length) {
+    throw new Error('One or more tenant-owned recovery or settings tables are missing.');
   }
   for (const table of rls.rows) {
     if (!table.relrowsecurity || !table.relforcerowsecurity) {
-      throw new Error(`Controlled-recovery table ${table.relname} does not force RLS.`);
+      throw new Error(`Tenant-owned table ${table.relname} does not force RLS.`);
     }
   }
 
@@ -126,7 +127,7 @@ try {
       capabilityRole: workerGroup,
       apiBypass: false,
       workerRequiresExplicitSetting: true,
-      recoveryTablesForcedRls: recoveryTables.length,
+      tenantTablesForcedRls: tenantTables.length,
     }),
   );
 } finally {

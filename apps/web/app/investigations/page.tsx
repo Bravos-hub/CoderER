@@ -1,6 +1,6 @@
 import { AppShell } from '../../components/shell/app-shell';
 import { PageHeader } from '../../components/ui/page-header';
-import { ResourceList } from '../../components/domain/resource-list';
+import { InvestigationList } from '../../components/domain/operational-lists';
 export default function Page() {
   return (
     <AppShell>
@@ -9,7 +9,7 @@ export default function Page() {
         title="Investigations"
         description="Organization-wide investigation lifecycle and current state."
       />
-      <ResourceList endpoint="investigations" kind="investigation records" />
+      <InvestigationList />
     </AppShell>
   );
 }

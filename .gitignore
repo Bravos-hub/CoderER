@@ -19,3 +19,5 @@ artifacts/
 secrets/
 *.pem
 *.key
+playwright-report/
+test-results/

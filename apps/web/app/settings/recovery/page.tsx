@@ -1,5 +1,7 @@
 import { AppShell } from '../../../components/shell/app-shell';
 import { PageHeader } from '../../../components/ui/page-header';
+import { OrganizationSettingKind } from '@codeer/contracts';
+import { SettingsForm } from '../../../components/settings/settings-form';
 export default function SettingsPage() {
   return (
     <AppShell>
@@ -8,46 +10,15 @@ export default function SettingsPage() {
         title="Recovery policy"
         description="Allowed paths, change budgets, dependency rules, migrations and approvals."
       />
-      <section className="settingsGrid">
-        <article className="panel">
-          <h2>Current policy</h2>
-          <div className="formGrid">
-            <label>
-              Policy version
-              <input defaultValue="v1" readOnly />
-            </label>
-            <label>
-              Enforcement
-              <select defaultValue="enforced">
-                <option value="enforced">Enforced</option>
-                <option value="monitor">Monitor only</option>
-              </select>
-            </label>
-            <label className="full">
-              Description
-              <textarea defaultValue="Allowed paths, change budgets, dependency rules, migrations and approvals." />
-            </label>
-          </div>
-          <div className="pageActions">
-            <button className="secondary">Discard</button>
-            <button>Save new version</button>
-          </div>
-        </article>
-        <aside className="panel">
-          <p className="eyebrow">GOVERNANCE</p>
-          <h2>Versioned changes</h2>
-          <p>
-            Updates are optimistic-concurrency protected, tenant scoped and recorded in the audit
-            chain.
-          </p>
-          <ul className="safetyList">
-            <li>Human actor required</li>
-            <li>Previous version retained</li>
-            <li>Server authorization enforced</li>
-            <li>Conflict-safe updates</li>
-          </ul>
-        </aside>
-      </section>
+      <SettingsForm
+        kind={OrganizationSettingKind.RECOVERY}
+        description="Allowed paths, change budgets, dependency rules, migrations and approvals."
+        defaultConfiguration={{
+          maximumChangedFiles: 25,
+          maximumChangedLines: 1000,
+          requireIndependentVerification: true,
+        }}
+      />
     </AppShell>
   );
 }

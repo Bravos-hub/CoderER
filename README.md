@@ -390,10 +390,27 @@ Remaining enterprise gates include:
 - load, chaos, penetration, container-escape and independent security testing;
 - formal availability objectives, on-call ownership and operational readiness review.
 
-## Next product milestone
-
-Sprint 7 will add the governed GitHub publication and independent release-verification plane: recreate the exact approved patch digest, push only a dedicated recovery branch through a least-privilege GitHub App, open a draft pull request, attach tamper-evident evidence, consume CI/check results and prevent merge until branch protection and human review requirements are satisfied. Production deployment and automatic merge remain out of scope.
-
 ## Sprint 7: GitHub publication and recovery closure
 
 Sprint 7 adds a dedicated publication trust boundary. Human-approved Sprint 6 recovery packages are policy-checked, converted into deterministic Git publication records, published through a least-privilege GitHub App, monitored through CI and review, and closed only after post-merge verification. See `docs/architecture/github-publication-plane.md`.
+
+## Sprint 8: operational command center
+
+Sprint 8 turns the web surface into an operational command center: purpose-built evidence,
+investigation, recovery, verification and publication views; real treatment-plan and publication
+approval mutations; and append-only organization, AI, recovery, publication and security settings.
+The settings table is tenant-scoped with forced RLS and immutable, digest-bearing versions. The
+Docker application profile now carries every required workspace into the hardened API, worker, web
+and migration images, and background reconciliation failures are contained without weakening the
+remote sandbox boundary.
+
+Playwright coverage visits every command-center route at desktop and mobile widths, enforces axe
+WCAG A/AA checks and horizontal-overflow constraints, and verifies repository intake through
+evidence-backed incident closure. Run it with `npm run test:e2e`; install the pinned browser once with
+`npm run test:e2e:install`.
+
+## Next product milestone
+
+The next milestone is production-like acceptance with a real remote sandbox engine, GitHub App and
+OpenAI credentials, followed by live CI/check ingestion and post-merge verification. Automatic merge
+remains out of scope.

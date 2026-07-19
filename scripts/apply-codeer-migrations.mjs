@@ -93,6 +93,11 @@ const migrations = [
       'GithubWebhookDelivery',
     ],
   },
+  {
+    id: '20260719000100_sprint8_command_center',
+    file: '../packages/database/prisma/migrations/20260719000100_sprint8_command_center/migration.sql',
+    requiredTables: ['OrganizationSetting'],
+  },
 ];
 
 function checksum(content) {

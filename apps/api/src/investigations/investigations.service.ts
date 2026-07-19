@@ -96,6 +96,17 @@ export class InvestigationsService implements OnModuleDestroy {
     }
   }
 
+  async listOrganization(context: StoreActorContext, rawQuery: unknown) {
+    this.authorize(context, IncidentPermission.READ_INVESTIGATION);
+    const parsed = InvestigationListQuerySchema.safeParse(rawQuery);
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    try {
+      return await this.store.listOrganizationInvestigations(context.organizationId, parsed.data);
+    } catch (error) {
+      throw this.toHttpException(error);
+    }
+  }
+
   async get(context: StoreActorContext, investigationId: string) {
     this.authorize(context, IncidentPermission.READ_INVESTIGATION);
     try {

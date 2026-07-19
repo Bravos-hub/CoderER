@@ -97,6 +97,17 @@ export class RecoveriesService implements OnModuleDestroy {
     }
   }
 
+  async listOrganization(context: StoreActorContext, rawQuery: unknown) {
+    this.authorize(context, IncidentPermission.READ_RECOVERY);
+    const parsed = RecoveryListQuerySchema.safeParse(rawQuery);
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    try {
+      return await this.store.listOrganizationRecoveries(context.organizationId, parsed.data);
+    } catch (error) {
+      throw this.toHttpException(error);
+    }
+  }
+
   async get(context: StoreActorContext, recoveryId: string) {
     this.authorize(context, IncidentPermission.READ_RECOVERY);
     try {

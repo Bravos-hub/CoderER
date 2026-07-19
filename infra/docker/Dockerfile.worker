@@ -1,6 +1,6 @@
 FROM node:24-bookworm-slim AS build
 WORKDIR /workspace
-ENV npm_config_audit=false npm_config_fund=false
+ENV npm_config_audit=false npm_config_fund=false npm_config_registry=https://registry.npmjs.org npm_config_replace_registry_host=always
 COPY package.json package-lock.json ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
@@ -12,6 +12,8 @@ COPY packages/database/package.json packages/database/package.json
 COPY packages/github/package.json packages/github/package.json
 COPY packages/incidents/package.json packages/incidents/package.json
 COPY packages/logger/package.json packages/logger/package.json
+COPY packages/publication/package.json packages/publication/package.json
+COPY packages/recovery/package.json packages/recovery/package.json
 COPY packages/repository/package.json packages/repository/package.json
 COPY packages/sandbox/package.json packages/sandbox/package.json
 COPY packages/security/package.json packages/security/package.json
@@ -25,6 +27,8 @@ COPY packages/database packages/database
 COPY packages/github packages/github
 COPY packages/incidents packages/incidents
 COPY packages/logger packages/logger
+COPY packages/publication packages/publication
+COPY packages/recovery packages/recovery
 COPY packages/repository packages/repository
 COPY packages/sandbox packages/sandbox
 COPY packages/security packages/security
@@ -35,6 +39,8 @@ RUN npm run build -w @codeer/contracts \
   && npm run build -w @codeer/security \
   && npm run build -w @codeer/sandbox \
   && npm run build -w @codeer/ai \
+  && npm run build -w @codeer/recovery \
+  && npm run build -w @codeer/publication \
   && npm run build -w @codeer/database \
   && npm run build -w @codeer/github \
   && npm run build -w @codeer/repository \
@@ -62,6 +68,8 @@ COPY --from=build --chown=node:node /workspace/packages/database ./packages/data
 COPY --from=build --chown=node:node /workspace/packages/github ./packages/github
 COPY --from=build --chown=node:node /workspace/packages/incidents ./packages/incidents
 COPY --from=build --chown=node:node /workspace/packages/logger ./packages/logger
+COPY --from=build --chown=node:node /workspace/packages/publication ./packages/publication
+COPY --from=build --chown=node:node /workspace/packages/recovery ./packages/recovery
 COPY --from=build --chown=node:node /workspace/packages/repository ./packages/repository
 COPY --from=build --chown=node:node /workspace/packages/sandbox ./packages/sandbox
 COPY --from=build --chown=node:node /workspace/packages/security ./packages/security

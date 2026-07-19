@@ -1,6 +1,6 @@
 FROM node:24-bookworm-slim AS build
 WORKDIR /workspace
-ENV NEXT_TELEMETRY_DISABLED=1 npm_config_audit=false npm_config_fund=false
+ENV NEXT_TELEMETRY_DISABLED=1 npm_config_audit=false npm_config_fund=false npm_config_registry=https://registry.npmjs.org npm_config_replace_registry_host=always
 COPY package.json package-lock.json ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
@@ -12,7 +12,10 @@ COPY packages/database/package.json packages/database/package.json
 COPY packages/github/package.json packages/github/package.json
 COPY packages/incidents/package.json packages/incidents/package.json
 COPY packages/logger/package.json packages/logger/package.json
+COPY packages/publication/package.json packages/publication/package.json
+COPY packages/recovery/package.json packages/recovery/package.json
 COPY packages/repository/package.json packages/repository/package.json
+COPY packages/sandbox/package.json packages/sandbox/package.json
 COPY packages/security/package.json packages/security/package.json
 RUN npm ci --ignore-scripts
 COPY tsconfig.base.json ./

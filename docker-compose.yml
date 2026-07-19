@@ -210,7 +210,7 @@ services:
       AI_STORE_PROVIDER_RESPONSES: ${AI_STORE_PROVIDER_RESPONSES:-false}
     volumes:
       - codeer-workspaces:/var/lib/codeer/workspaces
-      - '${GITHUB_APP_PRIVATE_KEY_FILE}:/run/secrets/github-app.pem:ro'
+      - '${GITHUB_APP_PRIVATE_KEY_FILE:-/dev/null}:/run/secrets/github-app.pem:ro'
     depends_on:
       redis:
         condition: service_healthy

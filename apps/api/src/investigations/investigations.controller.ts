@@ -7,6 +7,11 @@ import { InvestigationsService } from './investigations.service.js';
 export class InvestigationsController {
   constructor(private readonly investigations: InvestigationsService) {}
 
+  @Get()
+  list(@Req() request: Request, @Query() query: Record<string, unknown>) {
+    return this.investigations.listOrganization(requestContext(request), query);
+  }
+
   @Get(':investigationId')
   get(
     @Req() request: Request,

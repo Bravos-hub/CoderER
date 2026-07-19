@@ -493,6 +493,25 @@ export class RecoveryStore {
     );
   }
 
+  async listOrganizationRecoveries(organizationId: string, query: RecoveryListQuery) {
+    return await withTransaction(
+      async (client) => {
+        const values: unknown[] = [organizationId, query.limit];
+        const statusSql = query.status ? `AND "status"=$3::"RecoveryRunStatus"` : '';
+        if (query.status) values.push(query.status);
+        const rows = await queryMany<RecoveryRow>(
+          client,
+          `SELECT * FROM "RecoveryRun" WHERE "organizationId"=$1 ${statusSql}
+             ORDER BY "createdAt" DESC,"id" DESC LIMIT $2`,
+          values,
+        );
+        return { items: rows.map(mapRecovery), nextCursor: null };
+      },
+      { tenantOrganizationId: organizationId },
+      this.pool,
+    );
+  }
+
   async listEvents(organizationId: string, recoveryId: string, afterSequence = 0, limit = 100) {
     return await withTransaction(
       async (client) => {
