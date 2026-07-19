@@ -32,9 +32,19 @@ Repository admitted
 
 Do not depend on live failures for the recorded demo or judging. The seeded records include the sandbox logs, redacted evidence, GPT-5.6 invocation metadata, treatment-plan approval, accepted patch, verification report, pull-request package, publication record and closure record.
 
+## One-command bootstrap
+
+The full local bootstrap (infrastructure, migrations, runtime roles, demo reset and verification) runs as:
+
+```bash
+npm run demo:bootstrap
+```
+
+It ends by starting the web, api and worker dev servers. Use `node scripts/demo-bootstrap.mjs --no-start` to prepare everything without starting the application.
+
 ## One-command reset
 
-Prerequisites:
+Prerequisites (already covered by `demo:bootstrap`):
 
 ```bash
 npm run infra:up
@@ -48,6 +58,12 @@ Reset only the deterministic demo slice:
 npm run demo:reset
 ```
 
+Verify the seeded slice at any time:
+
+```bash
+npm run demo:verify
+```
+
 The reset command:
 
 - recreates the fixture repository under `/tmp/codeer-demo-repositories/primary`;
@@ -58,8 +74,10 @@ The reset command:
 
 Safety boundary:
 
-- it refuses to run with `NODE_ENV=production` unless `CODEER_DEMO_RESET_ALLOW_PRODUCTION=true`;
-- it targets only the configured demo organization and rows tied to the frozen demo external reference / repository provider ID;
+- it requires both `CODEER_DEMO_RESET_ENABLED=true` and `CODEER_DEMO_RESET_CONFIRMATION=RESET-COMPETITION-DEMO`;
+- it refuses unknown database hosts or database names (allowlists via `CODEER_DEMO_RESET_ALLOWED_HOSTS` / `CODEER_DEMO_RESET_ALLOWED_DATABASES`);
+- it only ever targets the frozen competition tenant `00000000-0000-4000-8000-000000000001` and rows tied to the frozen demo external reference / repository provider ID;
+- it confines the restored repository to the configured demo root;
 - it does not delete unrelated tenant records.
 
 ## Start the demo

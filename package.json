@@ -28,6 +28,8 @@
     "db:migrate": "npm run db:migrate -w @codeer/database",
     "db:seed": "npm run db:seed -w @codeer/database",
     "demo:reset": "node scripts/demo-reset.mjs",
+    "demo:verify": "node scripts/demo-verify.mjs",
+    "demo:bootstrap": "node scripts/demo-bootstrap.mjs",
     "demo:start": "npm run dev",
     "demo:tunnel": "cloudflared tunnel --url http://127.0.0.1:3000",
     "infra:up": "docker compose up -d postgres redis",

@@ -44,7 +44,7 @@ broken demo repository
   -> pull-request package
 ```
 
-The recommended primary incident is a frontend/backend API mismatch: the frontend calls `/api/users/profile`, while the backend exposes `/api/v1/profile`.
+The official primary incident is the frozen deterministic sandbox fixture contract failure (`ER-20260719-DEMO`): the reproduction script in `test/fixtures/sandbox-broken-repo` exits 17 with a `CODEER_FIXTURE_FAILURE` signature, and the seeded vertical slice shows admission, evidence, reproduction, investigation, approved treatment, controlled repair, independent verification and the pull-request package. Seeded records are labelled `SEEDED_DETERMINISTIC_REPLAY` and are visibly distinguished from live provider (GitHub/OpenAI) execution; see `docs/submission/demo-runbook.md`.
 
 ## How Codex was used
 
