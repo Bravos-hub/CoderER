@@ -46,8 +46,7 @@ export class SettingsService implements OnModuleDestroy {
 
   private requireAdministrator(context: CodeerRequestContext): void {
     const administrator = context.actorRoles.some(
-      (role) =>
-        role === ActorRole.ORGANIZATION_OWNER || role === ActorRole.ORGANIZATION_ADMIN,
+      (role) => role === ActorRole.ORGANIZATION_OWNER || role === ActorRole.ORGANIZATION_ADMIN,
     );
     if (context.actorType !== ActorType.USER || !context.trustedContext || !administrator) {
       throw new ForbiddenException(
