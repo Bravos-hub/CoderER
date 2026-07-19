@@ -58,6 +58,25 @@ function incidentEventHash(input) {
   });
 }
 
+/** Collects real http(s) URLs whose host is github.com (or a subdomain). */
+function findGithubUrls(value, found = []) {
+  if (typeof value === 'string') {
+    for (const match of value.matchAll(/https?:\/\/[^\s"'<>]+/g)) {
+      try {
+        const host = new URL(match[0]).hostname;
+        if (host === 'github.com' || host.endsWith('.github.com')) found.push(match[0]);
+      } catch {
+        // Not a parseable URL; ignore.
+      }
+    }
+  } else if (Array.isArray(value)) {
+    for (const item of value) findGithubUrls(item, found);
+  } else if (value && typeof value === 'object') {
+    for (const item of Object.values(value)) findGithubUrls(item, found);
+  }
+  return found;
+}
+
 const failures = [];
 const passes = [];
 
@@ -261,14 +280,8 @@ try {
     'publication events carry the seeded-replay provenance label',
     pubEvents.rowCount > 0 && unlabelledPubEvents.length === 0,
   );
-  const githubUrls = pubEvents.rows.filter((row) =>
-    canonicalJson(row.payload).includes('github.com'),
-  );
-  check(
-    'no seeded publication record links to github.com',
-    githubUrls.length === 0,
-    githubUrls[0] && canonicalJson(githubUrls[0].payload),
-  );
+  const githubUrls = pubEvents.rows.flatMap((row) => findGithubUrls(row.payload));
+  check('no seeded publication record links to github.com', githubUrls.length === 0, githubUrls[0]);
 
   // 10. Restored fixture repository exists on disk.
   const fixturePresent = await access(
