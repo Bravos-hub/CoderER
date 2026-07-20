@@ -1,4 +1,4 @@
-FROM node:24-bookworm-slim AS dependencies
+FROM node:26-bookworm-slim AS dependencies
 WORKDIR /workspace
 ENV npm_config_audit=false npm_config_fund=false npm_config_registry=https://registry.npmjs.org npm_config_replace_registry_host=always
 COPY package.json package-lock.json ./
@@ -19,7 +19,7 @@ COPY packages/sandbox/package.json packages/sandbox/package.json
 COPY packages/security/package.json packages/security/package.json
 RUN npm ci --ignore-scripts --omit=dev
 
-FROM node:24-bookworm-slim AS runtime
+FROM node:26-bookworm-slim AS runtime
 ENV NODE_ENV=production
 WORKDIR /workspace
 RUN groupmod -g 10001 node && usermod -u 10001 -g 10001 node
