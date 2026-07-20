@@ -18,7 +18,7 @@
     "@codeer/repository": "0.1.0",
     "@codeer/sandbox": "0.1.0",
     "@codeer/security": "0.1.0",
-    "bullmq": "5.80.2",
+    "bullmq": "5.80.9",
     "@codeer/ai": "0.1.0",
     "@codeer/recovery": "0.1.0",
     "@codeer/publication": "0.1.0"
