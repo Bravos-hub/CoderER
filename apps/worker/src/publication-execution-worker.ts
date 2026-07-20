@@ -122,8 +122,7 @@ export function createPublicationExecutionWorker(options: RuntimeOptions): {
         workerId,
         leaseSeconds,
       );
-      if (state.cancellationRequested)
-        throw new Error('Publication cancellation was requested.');
+      if (state.cancellationRequested) throw new Error('Publication cancellation was requested.');
     };
 
     try {
@@ -254,9 +253,7 @@ export function createPublicationExecutionWorker(options: RuntimeOptions): {
           nodeId: pullRequest.pullRequest.nodeId,
           url: pullRequest.pullRequest.url,
           title: pullRequest.pullRequest.title,
-          bodyDigest: createHash('sha256')
-            .update(pullRequest.pullRequest.body)
-            .digest('hex'),
+          bodyDigest: createHash('sha256').update(pullRequest.pullRequest.body).digest('hex'),
           baseBranch: pullRequest.pullRequest.baseRef,
           headBranch: pullRequest.pullRequest.headRef,
           headSha: pullRequest.pullRequest.headSha,

@@ -117,8 +117,7 @@ function createBundle(overrides: {
       overrides.securityReview === undefined ? { decision: 'ALLOW' } : overrides.securityReview,
     verification:
       overrides.verification === undefined ? { status: 'PASSED' } : overrides.verification,
-    materialization:
-      overrides.materialization === undefined ? null : overrides.materialization,
+    materialization: overrides.materialization === undefined ? null : overrides.materialization,
     policy: { ...policy, ...overrides.policyOverrides },
     installation: { installationId: '123456' },
     repository: { owner: OWNER, name: REPO, providerRepoId: '777' },
@@ -151,6 +150,79 @@ interface FakeGithubServer {
   requests: FakeRequest[];
   refs: Map<string, string>;
   pulls: FakePullRequest[];
+}
+
+interface FakeTreeChange {
+  path: string;
+  mode?: string;
+  type?: string;
+  sha: string | null;
+}
+
+function requestUrl(input: RequestInfo | URL): string {
+  if (typeof input === 'string') return input;
+  if (input instanceof URL) return input.href;
+  return input.url;
+}
+
+function headersRecord(headers?: HeadersInit): Record<string, string> {
+  const result: Record<string, string> = {};
+  if (!headers) return result;
+  if (headers instanceof Headers) {
+    headers.forEach((value, key) => {
+      result[key] = value;
+    });
+    return result;
+  }
+  if (Array.isArray(headers)) {
+    for (const [key, value] of headers) result[key] = value;
+    return result;
+  }
+  for (const [key, value] of Object.entries(headers)) result[key] = value;
+  return result;
+}
+
+function parseRequestBody(body: BodyInit | null | undefined): unknown {
+  if (body === undefined || body === null) return undefined;
+  if (typeof body !== 'string') throw new Error('Expected JSON request body to be a string.');
+  return JSON.parse(body) as unknown;
+}
+
+function asRecord(value: unknown, label: string): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value))
+    throw new Error(`Expected ${label} to be an object.`);
+  return value as Record<string, unknown>;
+}
+
+function asString(value: unknown, label: string): string {
+  if (typeof value !== 'string') throw new Error(`Expected ${label} to be a string.`);
+  return value;
+}
+
+function asStringArray(value: unknown, label: string): string[] {
+  if (!Array.isArray(value)) throw new Error(`Expected ${label} to be an array.`);
+  const items = value as unknown[];
+  if (!items.every((item): item is string => typeof item === 'string'))
+    throw new Error(`Expected ${label} to contain only strings.`);
+  return items;
+}
+
+function asTreeChanges(value: unknown): FakeTreeChange[] {
+  if (!Array.isArray(value)) throw new Error('Expected tree changes to be an array.');
+  return (value as unknown[]).map((item): FakeTreeChange => {
+    const record = asRecord(item, 'tree change');
+    const sha = record.sha;
+    if (sha !== null && typeof sha !== 'string')
+      throw new Error('Expected tree change sha to be a string or null.');
+    const mode = record.mode;
+    const type = record.type;
+    return {
+      path: asString(record.path, 'tree change path'),
+      ...(typeof mode === 'string' ? { mode } : {}),
+      ...(typeof type === 'string' ? { type } : {}),
+      sha,
+    };
+  });
 }
 
 function createFakeGithubServer(options?: {
@@ -212,16 +284,17 @@ function createFakeGithubServer(options?: {
     });
 
   const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-    const url = new URL(typeof input === 'string' ? input : input.toString());
+    await Promise.resolve();
+    const url = new URL(requestUrl(input));
     const method = init?.method ?? 'GET';
-    const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+    const body = parseRequestBody(init?.body);
     const path = url.pathname.replace(`/repos/${OWNER}/${REPO}`, '');
     requests.push({
       method,
       path,
       url: url.toString(),
       body,
-      headers: (init?.headers ?? {}) as Record<string, string>,
+      headers: headersRecord(init?.headers),
     });
 
     if (
@@ -258,18 +331,16 @@ function createFakeGithubServer(options?: {
       return json({ content: Buffer.from(content, 'utf8').toString('base64'), encoding: 'base64' });
     }
     if (method === 'POST' && path === '/git/blobs') {
-      const sha = blobSha(body.content as string);
-      blobs.set(sha, body.content as string);
+      const blobBody = asRecord(body, 'create blob body');
+      const content = asString(blobBody.content, 'blob content');
+      const sha = blobSha(content);
+      blobs.set(sha, content);
       return json({ sha }, 201);
     }
     if (method === 'POST' && path === '/git/trees') {
-      const entries = [...(trees.get(body.base_tree as string) ?? [])];
-      for (const change of body.tree as Array<{
-        path: string;
-        mode?: string;
-        type?: string;
-        sha: string | null;
-      }>) {
+      const treeBody = asRecord(body, 'create tree body');
+      const entries = [...(trees.get(asString(treeBody.base_tree, 'base tree sha')) ?? [])];
+      for (const change of asTreeChanges(treeBody.tree)) {
         const index = entries.findIndex((entry) => entry.path === change.path);
         if (change.sha === null) {
           if (index >= 0) entries.splice(index, 1);
@@ -299,48 +370,57 @@ function createFakeGithubServer(options?: {
       return json({ sha }, 201);
     }
     if (method === 'POST' && path === '/git/commits') {
+      const commitBody = asRecord(body, 'create commit body');
+      const message = asString(commitBody.message, 'commit message');
+      const tree = asString(commitBody.tree, 'commit tree');
+      const parents = asStringArray(commitBody.parents, 'commit parents');
+      const author = asRecord(commitBody.author, 'commit author');
+      const committer = asRecord(commitBody.committer, 'commit committer');
       const sha = commitSha({
-        message: body.message,
-        tree: body.tree,
-        parents: body.parents,
-        author: body.author,
-        committer: body.committer,
+        message,
+        tree,
+        parents,
+        author,
+        committer,
       });
       commits.set(sha, {
         sha,
-        treeSha: body.tree as string,
-        parents: body.parents as string[],
-        message: body.message as string,
+        treeSha: tree,
+        parents,
+        message,
       });
-      return json(
-        { sha, tree: { sha: body.tree }, parents: (body.parents as string[]).map((p) => ({ sha: p })) },
-        201,
-      );
+      return json({ sha, tree: { sha: tree }, parents: parents.map((p) => ({ sha: p })) }, 201);
     }
     if (method === 'POST' && path === '/git/refs') {
-      const branch = String(body.ref).replace('refs/heads/', '');
+      const refBody = asRecord(body, 'create ref body');
+      const ref = asString(refBody.ref, 'ref');
+      const sha = asString(refBody.sha, 'ref sha');
+      const branch = ref.replace('refs/heads/', '');
       if (refs.has(branch)) return new Response('Reference already exists', { status: 422 });
-      refs.set(branch, body.sha as string);
-      return json({ ref: body.ref, object: { sha: body.sha, type: 'commit' } }, 201);
+      refs.set(branch, sha);
+      return json({ ref, object: { sha, type: 'commit' } }, 201);
     }
     if (method === 'GET' && path === '/pulls') {
       const head = url.searchParams.get('head')?.split(':')[1];
       return json(pulls.filter((pull) => pull.state === 'open' && pull.head.ref === head));
     }
     if (method === 'POST' && path === '/pulls') {
-      if (pulls.some((pull) => pull.state === 'open' && pull.head.ref === body.head))
+      const pullBody = asRecord(body, 'create pull request body');
+      const head = asString(pullBody.head, 'pull request head');
+      if (pulls.some((pull) => pull.state === 'open' && pull.head.ref === head))
         return new Response('Validation Failed', { status: 422 });
+      const base = asString(pullBody.base, 'pull request base');
       const number = 100 + pulls.length;
       const pull: FakePullRequest = {
         number,
         node_id: `PR_${number}`,
         html_url: `https://github.test/${OWNER}/${REPO}/pull/${number}`,
-        title: body.title as string,
-        body: body.body as string,
-        draft: body.draft === true,
+        title: asString(pullBody.title, 'pull request title'),
+        body: asString(pullBody.body, 'pull request body'),
+        draft: pullBody.draft === true,
         state: 'open',
-        head: { ref: body.head as string, sha: refs.get(body.head as string) ?? '' },
-        base: { ref: body.base as string, sha: refs.get(body.base as string) ?? '' },
+        head: { ref: head, sha: refs.get(head) ?? '' },
+        base: { ref: base, sha: refs.get(base) ?? '' },
       };
       pulls.push(pull);
       return json(pull, 201);
@@ -363,14 +443,16 @@ function clientFor(server: FakeGithubServer, token = TOKEN): GithubPublicationCl
 
 describe('GitHub App installation token exchange', () => {
   it('requests a repository-scoped token with minimum permissions', async () => {
-    const seen: { body?: { repository_ids?: number[]; permissions?: Record<string, string> } } = {};
-    const client = new GithubAppClient('https://api.github.test', (async (_input, init) => {
-      seen.body = JSON.parse(String(init?.body));
-      return new Response(
-        JSON.stringify({ token: 'ghs_x', expires_at: '2026-07-20T01:00:00Z' }),
-        { status: 201 },
+    type TokenRequestBody = { repository_ids?: number[]; permissions?: Record<string, string> };
+    const seen: { body: TokenRequestBody | undefined } = { body: undefined };
+    const client = new GithubAppClient('https://api.github.test', (_input, init) => {
+      seen.body = parseRequestBody(init?.body) as TokenRequestBody;
+      return Promise.resolve(
+        new Response(JSON.stringify({ token: 'ghs_x', expires_at: '2026-07-20T01:00:00Z' }), {
+          status: 201,
+        }),
       );
-    }) as typeof fetch);
+    });
     const token = await client.createInstallationToken('jwt', '123456', [777]);
     expect(token.token).toBe('ghs_x');
     expect(seen.body?.repository_ids).toEqual([777]);
@@ -383,20 +465,22 @@ describe('GitHub App installation token exchange', () => {
   });
 
   it('rejects a failed token response with the status attached', async () => {
-    const client = new GithubAppClient('https://api.github.test', (async () => {
-      return new Response('Unauthorized', { status: 401 });
-    }) as typeof fetch);
-    const error = await client.createInstallationToken('jwt', '123456', [777]).catch(
-      (failure: unknown) => failure,
+    const client = new GithubAppClient('https://api.github.test', () =>
+      Promise.resolve(new Response('Unauthorized', { status: 401 })),
     );
+    const error = await client
+      .createInstallationToken('jwt', '123456', [777])
+      .catch((failure: unknown) => failure);
     expect(error).toBeInstanceOf(GithubAppTokenError);
     expect((error as GithubAppTokenError).status).toBe(401);
   });
 
   it('rejects an incomplete token response', async () => {
-    const client = new GithubAppClient('https://api.github.test', (async () => {
-      return new Response(JSON.stringify({ expires_at: '2026-07-20T01:00:00Z' }), { status: 201 });
-    }) as typeof fetch);
+    const client = new GithubAppClient('https://api.github.test', () =>
+      Promise.resolve(
+        new Response(JSON.stringify({ expires_at: '2026-07-20T01:00:00Z' }), { status: 201 }),
+      ),
+    );
     await expect(client.createInstallationToken('jwt', '123456', [777])).rejects.toBeInstanceOf(
       GithubAppTokenError,
     );
@@ -508,20 +592,18 @@ describe('materializePublicationCommit', () => {
 
   it('fails closed when the base branch moved after approval', async () => {
     const server = createFakeGithubServer({ baseSha: 'e'.repeat(40) });
-    const error = await materializePublicationCommit(
-      createBundle({}),
-      clientFor(server),
-    ).catch((failure: unknown) => failure);
+    const error = await materializePublicationCommit(createBundle({}), clientFor(server)).catch(
+      (failure: unknown) => failure,
+    );
     expect(error).toBeInstanceOf(PublicationFailure);
     expect((error as PublicationFailure).failureStatus).toBe(PublicationStatus.BASE_BRANCH_STALE);
   });
 
   it('rejects a materialized tree that does not match the approved patch', async () => {
     const server = createFakeGithubServer({ tamperTrees: true });
-    const error = await materializePublicationCommit(
-      createBundle({}),
-      clientFor(server),
-    ).catch((failure: unknown) => failure);
+    const error = await materializePublicationCommit(createBundle({}), clientFor(server)).catch(
+      (failure: unknown) => failure,
+    );
     expect(error).toBeInstanceOf(PublicationFailure);
     expect((error as PublicationFailure).failureCode).toBe('PUBLICATION_TREE_DIGEST_MISMATCH');
   });
@@ -639,13 +721,13 @@ describe('ensurePublicationBranch', () => {
     const server = createFakeGithubServer();
     const client = clientFor(server);
     const commit = await materializePublicationCommit(createBundle({}), client);
-    const wrappedFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-      if (init?.method === 'POST' && String(input).includes('/git/refs')) {
+    const wrappedFetch: typeof fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === 'POST' && requestUrl(input).includes('/git/refs')) {
         server.refs.set(HEAD_BRANCH, commit.commitSha);
-        return new Response('Reference already exists', { status: 422 });
+        return Promise.resolve(new Response('Reference already exists', { status: 422 }));
       }
       return server.fetch(input, init);
-    }) as typeof fetch;
+    };
     const raced = new GithubPublicationClient({
       baseUrl: server.baseUrl,
       owner: OWNER,
@@ -686,7 +768,11 @@ describe('ensureDraftPullRequest', () => {
     const createRequest = server.requests.find(
       (request) => request.method === 'POST' && request.path === '/pulls',
     );
-    expect(createRequest?.body).toMatchObject({ draft: true, base: BASE_BRANCH, head: HEAD_BRANCH });
+    expect(createRequest?.body).toMatchObject({
+      draft: true,
+      base: BASE_BRANCH,
+      head: HEAD_BRANCH,
+    });
   });
 
   it('reuses the existing open pull request for the head branch', async () => {
@@ -713,16 +799,16 @@ describe('ensureDraftPullRequest', () => {
     });
     expect(result.reused).toBe(true);
     expect(result.pullRequest.number).toBe(41);
-    expect(server.requests.some((request) => request.method === 'POST' && request.path === '/pulls')).toBe(
-      false,
-    );
+    expect(
+      server.requests.some((request) => request.method === 'POST' && request.path === '/pulls'),
+    ).toBe(false);
   });
 
   it('maps a creation conflict to reuse when the concurrent pull request matches', async () => {
     const server = createFakeGithubServer();
     const commit = await materializedOn(server);
-    const wrappedFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-      if (init?.method === 'POST' && String(input).includes('/pulls')) {
+    const wrappedFetch: typeof fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === 'POST' && requestUrl(input).includes('/pulls')) {
         server.pulls.push({
           number: 55,
           node_id: 'PR_55',
@@ -734,10 +820,10 @@ describe('ensureDraftPullRequest', () => {
           head: { ref: HEAD_BRANCH, sha: commit.commitSha },
           base: { ref: BASE_BRANCH, sha: BASE_COMMIT_SHA },
         });
-        return new Response('Validation Failed', { status: 422 });
+        return Promise.resolve(new Response('Validation Failed', { status: 422 }));
       }
       return server.fetch(input, init);
-    }) as typeof fetch;
+    };
     const raced = new GithubPublicationClient({
       baseUrl: server.baseUrl,
       owner: OWNER,
@@ -906,7 +992,10 @@ describe('installation token hygiene', () => {
     const bundle = createBundle({});
     const client = clientFor(server, TOKEN);
     const materialized = await materializePublicationCommit(bundle, client);
-    await ensurePublicationBranch(client, { headBranch: HEAD_BRANCH, commitSha: materialized.commitSha });
+    await ensurePublicationBranch(client, {
+      headBranch: HEAD_BRANCH,
+      commitSha: materialized.commitSha,
+    });
     await ensureDraftPullRequest(client, {
       title: bundle.pullRequestPackage.title,
       body: bundle.pullRequestPackage.body,

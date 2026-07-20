@@ -551,7 +551,11 @@ export class PublicationStore {
     );
   }
 
-  async releaseLease(organizationId: string, publicationId: string, workerId: string): Promise<void> {
+  async releaseLease(
+    organizationId: string,
+    publicationId: string,
+    workerId: string,
+  ): Promise<void> {
     await withTransaction(
       async (client) => {
         await assertPublicationLease(client, organizationId, publicationId, workerId);
@@ -721,7 +725,12 @@ export class PublicationStore {
   }): Promise<void> {
     await withTransaction(
       async (client) => {
-        await assertPublicationLease(client, command.organizationId, command.publicationId, command.workerId);
+        await assertPublicationLease(
+          client,
+          command.organizationId,
+          command.publicationId,
+          command.workerId,
+        );
         const current = await queryOne<{ status: PublicationStatus }>(
           client,
           `SELECT "status" FROM "PublicationRun" WHERE "id"=$1 FOR UPDATE`,
@@ -762,7 +771,12 @@ export class PublicationStore {
   }): Promise<void> {
     await withTransaction(
       async (client) => {
-        await assertPublicationLease(client, command.organizationId, command.publicationId, command.workerId);
+        await assertPublicationLease(
+          client,
+          command.organizationId,
+          command.publicationId,
+          command.workerId,
+        );
         const current = await queryOne<{
           status: PublicationStatus;
           baseCommitSha: string;
@@ -849,7 +863,12 @@ export class PublicationStore {
   }): Promise<void> {
     await withTransaction(
       async (client) => {
-        await assertPublicationLease(client, command.organizationId, command.publicationId, command.workerId);
+        await assertPublicationLease(
+          client,
+          command.organizationId,
+          command.publicationId,
+          command.workerId,
+        );
         const current = await queryOne<{ status: PublicationStatus; commitSha: string | null }>(
           client,
           `SELECT "status","commitSha" FROM "PublicationRun" WHERE "id"=$1 FOR UPDATE`,
@@ -937,7 +956,12 @@ export class PublicationStore {
   }): Promise<void> {
     await withTransaction(
       async (client) => {
-        await assertPublicationLease(client, command.organizationId, command.publicationId, command.workerId);
+        await assertPublicationLease(
+          client,
+          command.organizationId,
+          command.publicationId,
+          command.workerId,
+        );
         const current = await queryOne<{ status: PublicationStatus }>(
           client,
           `SELECT "status" FROM "PublicationRun" WHERE "id"=$1 FOR UPDATE`,

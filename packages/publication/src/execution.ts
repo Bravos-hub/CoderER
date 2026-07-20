@@ -1,9 +1,24 @@
 import { createHash } from 'node:crypto';
-import { canonicalJson } from '@codeer/incidents';
 import { PublicationStatus, type PublicationPolicy } from './types.js';
 
 function sha256Hex(value: string): string {
   return createHash('sha256').update(value).digest('hex');
+}
+
+function canonicalize(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, nested]) => [key, canonicalize(nested)]),
+    );
+  }
+  return value;
+}
+
+function canonicalJson(value: unknown): string {
+  return JSON.stringify(canonicalize(value));
 }
 
 const SHA40 = /^[a-f0-9]{40}$/i;
@@ -118,11 +133,7 @@ export interface PublicationPullRequest {
   baseSha: string;
 }
 
-function failure(
-  status: PublicationStatus,
-  code: string,
-  message: string,
-): PublicationFailure {
+function failure(status: PublicationStatus, code: string, message: string): PublicationFailure {
   return new PublicationFailure(status, code, message);
 }
 
@@ -907,12 +918,14 @@ export async function ensureDraftPullRequest(
       'BASE_BRANCH_STALE',
       'The base branch moved before the draft pull request could be created.',
     );
-  const matches = (pullRequest: PublicationPullRequest | null): pullRequest is PublicationPullRequest =>
+  const matches = (
+    pullRequest: PublicationPullRequest | null,
+  ): pullRequest is PublicationPullRequest =>
     Boolean(
       pullRequest &&
-        pullRequest.headRef === input.headBranch &&
-        pullRequest.baseRef === input.baseBranch &&
-        pullRequest.headSha === input.commitSha,
+      pullRequest.headRef === input.headBranch &&
+      pullRequest.baseRef === input.baseBranch &&
+      pullRequest.headSha === input.commitSha,
     );
   const existing = await client.findOpenPullRequest(input.headBranch);
   if (existing) {
@@ -972,11 +985,18 @@ export function classifyPublicationFailure(
     return { status: PublicationStatus.CANCELLED, code: 'PUBLICATION_CANCELLED', message };
   if (error instanceof GithubPublicationApiError) {
     if (error.status === 401 || error.status === 403)
-      return { status: PublicationStatus.PUBLICATION_BLOCKED, code: 'PUBLICATION_FORBIDDEN', message };
+      return {
+        status: PublicationStatus.PUBLICATION_BLOCKED,
+        code: 'PUBLICATION_FORBIDDEN',
+        message,
+      };
     if (error.status === 404)
-      return { status: PublicationStatus.PUBLICATION_BLOCKED, code: 'PUBLICATION_NOT_FOUND', message };
-    if (error.status === 409)
-      return { status: stageStatus, code: 'PUBLICATION_CONFLICT', message };
+      return {
+        status: PublicationStatus.PUBLICATION_BLOCKED,
+        code: 'PUBLICATION_NOT_FOUND',
+        message,
+      };
+    if (error.status === 409) return { status: stageStatus, code: 'PUBLICATION_CONFLICT', message };
     if (error.status === 422)
       return { status: stageStatus, code: 'PUBLICATION_VALIDATION_FAILED', message };
     if (error.status >= 500)
