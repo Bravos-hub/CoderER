@@ -19,6 +19,10 @@ import {
   CONTROLLED_RECOVERY_OUTBOX_TOPIC,
   CONTROLLED_RECOVERY_QUEUE,
   ControlledRecoveryJobSchema,
+  PUBLICATION_EXECUTION_JOB,
+  PUBLICATION_EXECUTION_QUEUE,
+  PUBLICATION_OUTBOX_TOPIC,
+  PublicationExecutionJobSchema,
   REPOSITORY_INTAKE_JOB,
   REPOSITORY_INTAKE_QUEUE,
   RepositoryIntakeJobSchema,
@@ -32,6 +36,7 @@ import { RepositoryWorkspace } from '@codeer/repository';
 import { createSandboxWorker } from './sandbox-execution-worker.js';
 import { createInvestigationWorker } from './investigation-worker.js';
 import { createControlledRecoveryWorker } from './controlled-recovery-worker.js';
+import { createPublicationExecutionWorker } from './publication-execution-worker.js';
 
 const config = loadWorkerConfig(process.env);
 const redisUrl = new URL(config.REDIS_URL);
@@ -92,6 +97,21 @@ const controlledRecoveryQueue = new Queue(CONTROLLED_RECOVERY_QUEUE, {
   },
 });
 const controlledRecoveryRuntime = createControlledRecoveryWorker({ config, connection, workerId });
+
+const publicationExecutionQueue = new Queue(PUBLICATION_EXECUTION_QUEUE, {
+  connection,
+  defaultJobOptions: {
+    attempts: 1,
+    removeOnComplete: { age: 86_400, count: 2_000 },
+    removeOnFail: { age: 604_800, count: 5_000 },
+  },
+});
+const publicationExecutionRuntime = createPublicationExecutionWorker({
+  config,
+  connection,
+  workerId,
+  githubPrivateKey,
+});
 
 const repositoryIntakeWorker = new Worker(
   REPOSITORY_INTAKE_QUEUE,
@@ -264,6 +284,11 @@ async function publishOutbox(): Promise<void> {
           await controlledRecoveryQueue.add(CONTROLLED_RECOVERY_JOB, payload, {
             jobId: message.deduplicationKey,
           });
+        } else if (message.topic === PUBLICATION_OUTBOX_TOPIC) {
+          const payload = PublicationExecutionJobSchema.parse(message.payload);
+          await publicationExecutionQueue.add(PUBLICATION_EXECUTION_JOB, payload, {
+            jobId: message.deduplicationKey,
+          });
         } else {
           throw new Error(`Unsupported outbox topic: ${message.topic}`);
         }
@@ -309,17 +334,24 @@ const controlledRecoveryReconcileTimer = setInterval(
   () => reconcileSafely('controlled-recovery', () => controlledRecoveryRuntime.reconcile()),
   config.RECOVERY_RECONCILE_INTERVAL_MS,
 );
+const publicationExecutionReconcileTimer = setInterval(
+  () => reconcileSafely('publication-execution', () => publicationExecutionRuntime.reconcile()),
+  config.PUBLICATION_RECONCILE_INTERVAL_MS,
+);
 outboxTimer.unref();
 sandboxReconcileTimer.unref();
 investigationReconcileTimer.unref();
 controlledRecoveryReconcileTimer.unref();
+publicationExecutionReconcileTimer.unref();
 void publishOutbox();
 reconcileSafely('sandbox', () => sandboxRuntime.reconcile());
 reconcileSafely('investigation', () => investigationRuntime.reconcile());
 reconcileSafely('controlled-recovery', () => controlledRecoveryRuntime.reconcile());
+reconcileSafely('publication-execution', () => publicationExecutionRuntime.reconcile());
 
 for (const worker of [
   controlledRecoveryRuntime.worker,
+  publicationExecutionRuntime.worker,
   repositoryIntakeWorker,
   incidentTriageWorker,
   sandboxRuntime.worker,
@@ -339,8 +371,10 @@ async function shutdown(signal: string): Promise<void> {
   clearInterval(sandboxReconcileTimer);
   clearInterval(investigationReconcileTimer);
   clearInterval(controlledRecoveryReconcileTimer);
+  clearInterval(publicationExecutionReconcileTimer);
   await Promise.all([
     controlledRecoveryRuntime.close(),
+    publicationExecutionRuntime.close(),
     repositoryIntakeWorker.close(),
     incidentTriageWorker.close(),
     sandboxRuntime.close(),
@@ -349,6 +383,7 @@ async function shutdown(signal: string): Promise<void> {
     sandboxExecutionQueue.close(),
     investigationQueue.close(),
     controlledRecoveryQueue.close(),
+    publicationExecutionQueue.close(),
   ]);
   await closeDatabase();
   process.exit(0);
@@ -364,6 +399,7 @@ logger.info(
     incidentTriageConcurrency: config.INCIDENT_TRIAGE_CONCURRENCY,
     sandboxExecutionConcurrency: config.SANDBOX_EXECUTION_CONCURRENCY,
     investigationConcurrency: config.AI_INVESTIGATION_CONCURRENCY,
+    publicationExecutionConcurrency: config.PUBLICATION_EXECUTION_CONCURRENCY,
     outboxPollIntervalMs: config.OUTBOX_POLL_INTERVAL_MS,
     workspaceRoot: config.REPOSITORY_WORKSPACE_ROOT,
   },

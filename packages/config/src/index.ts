@@ -524,6 +524,25 @@ const workerSchema = baseSchema
       .min(64 * 1024)
       .max(100 * 1024 * 1024)
       .default(16 * 1024 * 1024),
+    PUBLICATION_EXECUTION_CONCURRENCY: z.coerce.number().int().min(1).max(20).default(1),
+    PUBLICATION_EXECUTION_LEASE_MS: z.coerce
+      .number()
+      .int()
+      .min(15_000)
+      .max(10 * 60 * 1000)
+      .default(90_000),
+    PUBLICATION_RECONCILE_INTERVAL_MS: z.coerce
+      .number()
+      .int()
+      .min(10_000)
+      .max(60 * 60 * 1000)
+      .default(60_000),
+    PUBLICATION_STALE_AFTER_MS: z.coerce
+      .number()
+      .int()
+      .min(60_000)
+      .max(24 * 60 * 60 * 1000)
+      .default(60 * 60 * 1000),
   })
   .superRefine((config, context) => {
     validateSandboxImageRegistries(config, context);
@@ -638,6 +657,13 @@ const workerSchema = baseSchema
         code: z.ZodIssueCode.custom,
         path: ['RECOVERY_STALE_AFTER_MS'],
         message: 'Recovery stale threshold must be at least two lease windows.',
+      });
+    }
+    if (config.PUBLICATION_STALE_AFTER_MS < config.PUBLICATION_EXECUTION_LEASE_MS * 2) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['PUBLICATION_STALE_AFTER_MS'],
+        message: 'Publication stale threshold must be at least two lease windows.',
       });
     }
     if (config.NODE_ENV === 'production' && !path.isAbsolute(config.RECOVERY_WORKTREE_ROOT)) {
