@@ -19,6 +19,10 @@ import {
   CONTROLLED_RECOVERY_OUTBOX_TOPIC,
   CONTROLLED_RECOVERY_QUEUE,
   ControlledRecoveryJobSchema,
+  GITHUB_WEBHOOK_OUTBOX_TOPIC,
+  GITHUB_WEBHOOK_PROCESS_JOB,
+  GITHUB_WEBHOOK_PROCESS_QUEUE,
+  GithubWebhookProcessJobSchema,
   REPOSITORY_INTAKE_JOB,
   REPOSITORY_INTAKE_QUEUE,
   RepositoryIntakeJobSchema,
@@ -32,6 +36,7 @@ import { RepositoryWorkspace } from '@codeer/repository';
 import { createSandboxWorker } from './sandbox-execution-worker.js';
 import { createInvestigationWorker } from './investigation-worker.js';
 import { createControlledRecoveryWorker } from './controlled-recovery-worker.js';
+import { createGithubWebhookWorker } from './github-webhook-worker.js';
 
 const config = loadWorkerConfig(process.env);
 const redisUrl = new URL(config.REDIS_URL);
@@ -92,6 +97,17 @@ const controlledRecoveryQueue = new Queue(CONTROLLED_RECOVERY_QUEUE, {
   },
 });
 const controlledRecoveryRuntime = createControlledRecoveryWorker({ config, connection, workerId });
+
+const githubWebhookQueue = new Queue(GITHUB_WEBHOOK_PROCESS_QUEUE, {
+  connection,
+  defaultJobOptions: {
+    attempts: 3,
+    backoff: { type: 'exponential', delay: 2_000 },
+    removeOnComplete: { age: 86_400, count: 5_000 },
+    removeOnFail: { age: 604_800, count: 5_000 },
+  },
+});
+const githubWebhookWorker = createGithubWebhookWorker({ connection, concurrency: 2 });
 
 const repositoryIntakeWorker = new Worker(
   REPOSITORY_INTAKE_QUEUE,
@@ -264,6 +280,11 @@ async function publishOutbox(): Promise<void> {
           await controlledRecoveryQueue.add(CONTROLLED_RECOVERY_JOB, payload, {
             jobId: message.deduplicationKey,
           });
+        } else if (message.topic === GITHUB_WEBHOOK_OUTBOX_TOPIC) {
+          const payload = GithubWebhookProcessJobSchema.parse(message.payload);
+          await githubWebhookQueue.add(GITHUB_WEBHOOK_PROCESS_JOB, payload, {
+            jobId: message.deduplicationKey,
+          });
         } else {
           throw new Error(`Unsupported outbox topic: ${message.topic}`);
         }
@@ -324,6 +345,7 @@ for (const worker of [
   incidentTriageWorker,
   sandboxRuntime.worker,
   investigationRuntime.worker,
+  githubWebhookWorker,
 ]) {
   worker.on('completed', (job) =>
     logger.info({ jobId: job.id, queue: worker.name }, 'Job completed'),
@@ -345,10 +367,12 @@ async function shutdown(signal: string): Promise<void> {
     incidentTriageWorker.close(),
     sandboxRuntime.close(),
     investigationRuntime.close(),
+    githubWebhookWorker.close(),
     incidentTriageQueue.close(),
     sandboxExecutionQueue.close(),
     investigationQueue.close(),
     controlledRecoveryQueue.close(),
+    githubWebhookQueue.close(),
   ]);
   await closeDatabase();
   process.exit(0);

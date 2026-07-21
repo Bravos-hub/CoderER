@@ -1656,3 +1656,17 @@ export const SaveOrganizationSettingSchema = z.object({
   configuration: z.record(z.string(), z.unknown()).default({}),
 });
 export type SaveOrganizationSettingInput = z.infer<typeof SaveOrganizationSettingSchema>;
+
+export const GITHUB_WEBHOOK_PROCESS_QUEUE = 'github-webhook-process';
+export const GITHUB_WEBHOOK_PROCESS_JOB = 'github.webhook.process';
+export const GITHUB_WEBHOOK_OUTBOX_TOPIC = 'github.webhook.process.v1';
+
+export const GithubWebhookProcessJobSchema = z.object({
+  deliveryId: z.string().min(8).max(128),
+  organizationId: UuidSchema,
+  eventName: z.string().min(1).max(100),
+  attempt: z.number().int().min(1),
+  correlationId: z.string().min(1).max(200),
+  normalized: z.record(z.string(), z.unknown()),
+});
+export type GithubWebhookProcessJob = z.infer<typeof GithubWebhookProcessJobSchema>;
