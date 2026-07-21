@@ -56,7 +56,7 @@ jobs:
       - name: Pull deterministic smoke images
         run: |
           docker pull node:24-bookworm-slim
-          docker image inspect node:24-bookworm-slim --format '{{.Id}} {{join .RepoDigests ","}}'
+          docker image inspect node:24-bookworm-slim --format '{{.Id}} {{json .RepoDigests}}'
       - name: Run hardened Docker provider smoke test
         env:
           SANDBOX_SMOKE_IMAGE: node:24-bookworm-slim

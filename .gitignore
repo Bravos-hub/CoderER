@@ -23,3 +23,4 @@ secrets/
 playwright-report/
 test-results/
 *.tsbuildinfo
+**/dist.root-owned-stale/

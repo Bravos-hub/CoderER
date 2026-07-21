@@ -49,6 +49,8 @@ jobs:
       DATABASE_URL: postgresql://codeer_app:codeer-ci-runtime-password@localhost:5432/codeer
       DATABASE_WORKER_URL: postgresql://codeer_worker:codeer-ci-worker-password@localhost:5432/codeer
       REDIS_URL: redis://localhost:6379
+      CODEER_DEMO_RESET_ENABLED: 'true'
+      CODEER_DEMO_RESET_CONFIRMATION: RESET-COMPETITION-DEMO
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v6
@@ -63,15 +65,21 @@ jobs:
       - run: npm run test
       - run: npm run test:evaluation:investigation
       - run: npm run test:evaluation:recovery
+      - run: npm run test:evaluation:publication
       - run: npm run build
       - run: npm run db:validate:recovery-static
+      - run: npm run db:validate:publication-static
       - run: npm run db:migrate:all
       - run: npm run db:provision:runtime
       - run: npm run db:verify:roles
+      - run: npm run demo:reset
+      - run: npm run demo:verify
       - run: npm run test:integration:incident
       - run: npm run test:integration:investigation
       - run: npm run test:integration:recovery
       - run: npm run test:integration:sandbox:persistence
+      - run: npm run test:integration:publication
+      - run: npm run test:integration:demo-reset
       - run: npm run security:check
 
   container-build:

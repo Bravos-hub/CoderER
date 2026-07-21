@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import type { IncidentDetail } from '@codeer/contracts';
+import { isSeededReplayIncident } from '../../../lib/demo-replay';
+import { SeededReplayBanner } from '../../../components/domain/seeded-replay-banner';
 import { ReproductionPanel } from './reproduction-panel';
 import { InvestigationPanel } from './investigation-panel';
 import { RecoveryPanel } from './recovery-panel';
@@ -66,6 +68,7 @@ export function IncidentDetailView({ incidentId }: { incidentId: string }) {
   const { incident, latestHealthSnapshot, latestSeverityAssessment } = detail;
   return (
     <>
+      {isSeededReplayIncident(incidentId) ? <SeededReplayBanner /> : null}
       <section className="incidentDetailHeader">
         <div>
           <p className="eyebrow">{incident.shortCode}</p>

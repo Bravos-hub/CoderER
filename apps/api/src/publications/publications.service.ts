@@ -6,7 +6,7 @@ import {
   OnModuleDestroy,
 } from '@nestjs/common';
 import { ActorRole, ActorType, IncidentPermission } from '@codeer/contracts';
-import { closeDatabase, PublicationStore } from '@codeer/database';
+import { closeDatabase, MergeClosureStore, PublicationStore } from '@codeer/database';
 import type { CodeerRequestContext } from '../security/request-context.middleware.js';
 import {
   PublicationStatus,
@@ -19,7 +19,13 @@ import { AuthorizationError, assertIncidentPermission } from '@codeer/security';
 
 @Injectable()
 export class PublicationsService implements OnModuleDestroy {
-  private readonly store = new PublicationStore();
+  private readonly store: PublicationStore;
+  private readonly closureStore: MergeClosureStore;
+
+  constructor(store?: PublicationStore, closureStore?: MergeClosureStore) {
+    this.store = store ?? new PublicationStore();
+    this.closureStore = closureStore ?? new MergeClosureStore();
+  }
 
   async create(
     context: CodeerRequestContext,
@@ -147,6 +153,21 @@ export class PublicationsService implements OnModuleDestroy {
     if (current.status !== PublicationStatus.AWAITING_REVIEW) {
       throw new BadRequestException(
         'Publication must be awaiting review before it can be marked ready.',
+      );
+    }
+    // A human decision can never override a red or missing readiness evaluation.
+    const readiness = await this.closureStore.latestMergeReadiness(
+      context.organizationId,
+      publicationId,
+    );
+    if (!readiness) {
+      throw new BadRequestException(
+        'No merge readiness decision exists yet; wait for check and review synchronization.',
+      );
+    }
+    if (!readiness.ready) {
+      throw new BadRequestException(
+        `Publication is not merge-ready: ${readiness.blockers.join(' ')}`,
       );
     }
     return this.store.transition(

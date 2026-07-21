@@ -208,17 +208,17 @@ export class DockerSandboxProvider implements SandboxProvider {
     }
     const inspectImage = async (image: string, purpose: string) => {
       const inspection = await this.runDocker(
-        ['image', 'inspect', '--format', '{{.Id}}|{{join .RepoDigests ","}}', image],
+        ['image', 'inspect', '--format', '{{.Id}}|{{json .RepoDigests}}', image],
         30_000,
       );
-      const [id = '', repoDigestText = ''] = inspection.stdout.trim().split('|', 2);
+      const [id = '', repoDigestJson = '[]'] = inspection.stdout.trim().split('|', 2);
       if (!/^sha256:[0-9a-f]{64}$/i.test(id)) {
         throw new Error(`${purpose} image identity could not be verified before execution.`);
       }
       return {
         id: id.toLowerCase(),
-        repoDigests: repoDigestText
-          .split(',')
+        repoDigests: (JSON.parse(repoDigestJson) as unknown[])
+          .filter((value): value is string => typeof value === 'string')
           .map((value) => value.trim())
           .filter(Boolean)
           .sort(),
@@ -433,8 +433,10 @@ export class DockerSandboxProvider implements SandboxProvider {
       'core=0:0',
       '--ulimit',
       'nofile=1024:1024',
-      '--ulimit',
-      `nproc=${policy.resourceLimits.pids}:${policy.resourceLimits.pids}`,
+      // No RLIMIT_NPROC here: it counts the container UID's processes
+      // host-wide, which already exceeds any sane value on a real machine and
+      // makes docker-init fail with "resource temporarily unavailable".
+      // --pids-limit below is the correct cgroup-level bound.
       '--stop-timeout',
       '1',
       '--pids-limit',
