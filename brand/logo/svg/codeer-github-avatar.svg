@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+<title id="title">CodeER GitHub avatar</title><desc id="desc">Square repository avatar.</desc>
+<g transform="translate(64 64) scale(1.5)"><rect width="256" height="256" rx="48" fill="#071018"/><path d="M170 54C155 42 137 36 116 36C66 36 26 76 26 126C26 176 66 216 116 216C138 216 158 209 173 196" fill="none" stroke="#F5F7FA" stroke-width="24" stroke-linecap="round"/><path d="M62 130H91L105 101L125 159L142 120L155 130H183" fill="none" stroke="#FF4D35" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/><path d="M180 111L204 130L180 149" fill="none" stroke="#FF4D35" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/></g>
+</svg>

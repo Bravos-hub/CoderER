@@ -1,0 +1,17 @@
+{
+  "name": "CodeER",
+  "short_name": "CodeER",
+  "description": "Emergency response for broken software.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#071018",
+  "theme_color": "#071018",
+  "icons": [
+    {
+      "src": "../svg/codeer-favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
