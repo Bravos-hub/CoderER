@@ -45,7 +45,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci --ignore-scripts --no-audit --no-fund
-      - run: npm run test -w @codeer/recovery
+      - run: npx vitest run packages/recovery
       - run: npm run test:evaluation:recovery
       - name: Enforce protected-branch and shell invariants
         run: |
@@ -95,6 +95,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run build:packages
       - run: npm run db:validate:recovery-static
       - run: npm run db:migrate:all
       - run: npm run db:provision:runtime
