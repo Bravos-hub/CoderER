@@ -26,6 +26,16 @@ export interface GithubInstallationToken {
   expiresAt: string;
 }
 
+export class GithubAppTokenError extends Error {
+  constructor(
+    readonly status: number | null,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'GithubAppTokenError';
+  }
+}
+
 export class GithubAppClient {
   constructor(
     private readonly baseUrl = 'https://api.github.com',
@@ -59,10 +69,13 @@ export class GithubAppClient {
       },
     );
     if (!response.ok)
-      throw new Error(`GitHub installation token request failed with status ${response.status}.`);
+      throw new GithubAppTokenError(
+        response.status,
+        `GitHub installation token request failed with status ${response.status}.`,
+      );
     const body = (await response.json()) as { token?: string; expires_at?: string };
     if (!body.token || !body.expires_at)
-      throw new Error('GitHub installation token response is incomplete.');
+      throw new GithubAppTokenError(null, 'GitHub installation token response is incomplete.');
     return { token: body.token, expiresAt: body.expires_at };
   }
 }

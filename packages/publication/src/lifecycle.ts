@@ -17,20 +17,26 @@ const transitions: Record<PublicationStatus, readonly PublicationStatus[]> = {
   [PublicationStatus.POLICY_CHECK]: [
     PublicationStatus.COMMIT_MATERIALIZING,
     PublicationStatus.PUBLICATION_BLOCKED,
+    PublicationStatus.BASE_BRANCH_STALE,
+    PublicationStatus.SECURITY_BLOCKED,
     PublicationStatus.CANCELLED,
   ],
   [PublicationStatus.COMMIT_MATERIALIZING]: [
     PublicationStatus.BRANCH_PUBLISHING,
     PublicationStatus.PUBLICATION_BLOCKED,
+    PublicationStatus.BASE_BRANCH_STALE,
     PublicationStatus.TIMED_OUT,
   ],
   [PublicationStatus.BRANCH_PUBLISHING]: [
     PublicationStatus.DRAFT_PR_CREATING,
+    PublicationStatus.PUBLICATION_BLOCKED,
     PublicationStatus.PUSH_FAILED,
     PublicationStatus.TIMED_OUT,
   ],
   [PublicationStatus.DRAFT_PR_CREATING]: [
     PublicationStatus.CI_MONITORING,
+    PublicationStatus.PUBLICATION_BLOCKED,
+    PublicationStatus.BASE_BRANCH_STALE,
     PublicationStatus.PR_CREATION_FAILED,
     PublicationStatus.TIMED_OUT,
   ],
