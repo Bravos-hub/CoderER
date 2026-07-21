@@ -7,7 +7,7 @@ This runbook freezes the July 19, 2026 competition demo around one deterministic
 ## Frozen primary demo incident
 
 - Scenario: deterministic sandbox fixture contract failure.
-- Incident short code: `ER-20260719-DEMO`
+- Incident short code: `ER-20260719-DEM001`
 - Incident ID: `00000000-0000-4000-8000-000000290004`
 - Repository: `CodeER/sandbox-broken-repo`
 - Repository ID: `00000000-0000-4000-8000-000000290001`

@@ -189,7 +189,7 @@ const demo = {
     'https://github.com/Bravos-hub/CoderER/tree/d1da589436fbd147441fc276402b3762b7b63019/test/fixtures/sandbox-broken-repo',
   htmlUrl:
     'https://github.com/Bravos-hub/CoderER/tree/d1da589436fbd147441fc276402b3762b7b63019/test/fixtures/sandbox-broken-repo',
-  shortCode: 'ER-20260719-DEMO',
+  shortCode: 'ER-20260719-DEM001',
   actorId: 'competition-demo-seed',
   judgeActorId: 'judge@codeer.local',
   requestId: 'demo-reset-20260719',
