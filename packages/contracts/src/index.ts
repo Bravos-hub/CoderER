@@ -1622,6 +1622,36 @@ export const CONTROLLED_RECOVERY_QUEUE = 'codeer-controlled-recovery';
 export const CONTROLLED_RECOVERY_JOB = 'recovery.execute';
 export const CONTROLLED_RECOVERY_OUTBOX_TOPIC = 'recovery.requested';
 
+export const PublicationExecutionJobSchema = z.object({
+  publicationId: UuidSchema,
+  organizationId: UuidSchema,
+  repositoryId: UuidSchema,
+  attempt: z.number().int().positive().default(1),
+  correlationId: z.string().min(1).max(128),
+});
+export type PublicationExecutionJob = z.infer<typeof PublicationExecutionJobSchema>;
+
+export const PublicationExecutionResultSchema = z.object({
+  publicationId: UuidSchema,
+  organizationId: UuidSchema,
+  status: z.string().trim().min(1).max(64),
+  baseBranch: z.string().trim().min(1).max(255),
+  headBranch: z.string().trim().min(1).max(255),
+  baseCommitSha: z.string().regex(/^[0-9a-f]{40}$/i),
+  treeSha: z.string().regex(/^[0-9a-f]{40}$/i),
+  commitSha: z.string().regex(/^[0-9a-f]{40}$/i),
+  pullRequestNumber: z.number().int().positive(),
+  pullRequestUrl: z.string().url(),
+  branchReused: z.boolean(),
+  pullRequestReused: z.boolean(),
+  completedAt: z.string().datetime(),
+});
+export type PublicationExecutionResult = z.infer<typeof PublicationExecutionResultSchema>;
+
+export const PUBLICATION_EXECUTION_QUEUE = 'codeer-publication-execution';
+export const PUBLICATION_EXECUTION_JOB = 'publication.execute';
+export const PUBLICATION_OUTBOX_TOPIC = 'publication.execute.v1';
+
 export enum OrganizationSettingKind {
   ORGANIZATION = 'ORGANIZATION',
   AI = 'AI',

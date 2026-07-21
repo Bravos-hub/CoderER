@@ -4,6 +4,11 @@ import {
   CreateIncidentSchema,
   IncidentSeverity,
   IncidentSource,
+  PUBLICATION_EXECUTION_JOB,
+  PUBLICATION_EXECUTION_QUEUE,
+  PUBLICATION_OUTBOX_TOPIC,
+  PublicationExecutionJobSchema,
+  PublicationExecutionResultSchema,
   RepositoryIntakeJobSchema,
 } from './index.js';
 
@@ -73,5 +78,58 @@ describe('CodeER contracts', () => {
       requestedAt: '2026-07-12T00:00:00.000Z',
     });
     expect(value.intakeId).toBe('d9428888-122b-11e1-b85c-61cd3cbb3210');
+  });
+
+  it('validates the publication execution outbox payload shape', () => {
+    const value = PublicationExecutionJobSchema.parse({
+      publicationId: '11111111-1111-4111-8111-111111111111',
+      organizationId: '33333333-3333-4333-8333-333333333333',
+      repositoryId: '44444444-4444-4444-8444-444444444444',
+      attempt: 1,
+      correlationId: 'req_01J2CODEERSPRINT7',
+    });
+    expect(value.publicationId).toBe('11111111-1111-4111-8111-111111111111');
+    expect(PUBLICATION_OUTBOX_TOPIC).toBe('publication.execute.v1');
+    expect(PUBLICATION_EXECUTION_QUEUE).toBe('codeer-publication-execution');
+    expect(PUBLICATION_EXECUTION_JOB).toBe('publication.execute');
+  });
+
+  it('rejects publication jobs without a correlation id and strips credential fields', () => {
+    expect(() =>
+      PublicationExecutionJobSchema.parse({
+        publicationId: '11111111-1111-4111-8111-111111111111',
+        organizationId: '33333333-3333-4333-8333-333333333333',
+        repositoryId: '44444444-4444-4444-8444-444444444444',
+        attempt: 1,
+      }),
+    ).toThrow();
+    const parsed = PublicationExecutionJobSchema.parse({
+      publicationId: '11111111-1111-4111-8111-111111111111',
+      organizationId: '33333333-3333-4333-8333-333333333333',
+      repositoryId: '44444444-4444-4444-8444-444444444444',
+      attempt: 1,
+      correlationId: 'req_01',
+      token: 'ghs_must_not_be_here',
+    });
+    expect('token' in parsed).toBe(false);
+  });
+
+  it('validates a publication execution result', () => {
+    const value = PublicationExecutionResultSchema.parse({
+      publicationId: '11111111-1111-4111-8111-111111111111',
+      organizationId: '33333333-3333-4333-8333-333333333333',
+      status: 'CI_MONITORING',
+      baseBranch: 'main',
+      headBranch: 'codeer/recovery/fix-v1',
+      baseCommitSha: 'a'.repeat(40),
+      treeSha: 'b'.repeat(40),
+      commitSha: 'c'.repeat(40),
+      pullRequestNumber: 42,
+      pullRequestUrl: 'https://github.com/Bravos-hub/CoderER/pull/42',
+      branchReused: false,
+      pullRequestReused: true,
+      completedAt: '2026-07-20T00:00:00.000Z',
+    });
+    expect(value.pullRequestNumber).toBe(42);
   });
 });

@@ -19,6 +19,10 @@ import {
   CONTROLLED_RECOVERY_OUTBOX_TOPIC,
   CONTROLLED_RECOVERY_QUEUE,
   ControlledRecoveryJobSchema,
+  PUBLICATION_EXECUTION_JOB,
+  PUBLICATION_EXECUTION_QUEUE,
+  PUBLICATION_OUTBOX_TOPIC,
+  PublicationExecutionJobSchema,
   GITHUB_WEBHOOK_OUTBOX_TOPIC,
   GITHUB_WEBHOOK_PROCESS_JOB,
   GITHUB_WEBHOOK_PROCESS_QUEUE,
@@ -330,17 +334,24 @@ const controlledRecoveryReconcileTimer = setInterval(
   () => reconcileSafely('controlled-recovery', () => controlledRecoveryRuntime.reconcile()),
   config.RECOVERY_RECONCILE_INTERVAL_MS,
 );
+const publicationExecutionReconcileTimer = setInterval(
+  () => reconcileSafely('publication-execution', () => publicationExecutionRuntime.reconcile()),
+  config.PUBLICATION_RECONCILE_INTERVAL_MS,
+);
 outboxTimer.unref();
 sandboxReconcileTimer.unref();
 investigationReconcileTimer.unref();
 controlledRecoveryReconcileTimer.unref();
+publicationExecutionReconcileTimer.unref();
 void publishOutbox();
 reconcileSafely('sandbox', () => sandboxRuntime.reconcile());
 reconcileSafely('investigation', () => investigationRuntime.reconcile());
 reconcileSafely('controlled-recovery', () => controlledRecoveryRuntime.reconcile());
+reconcileSafely('publication-execution', () => publicationExecutionRuntime.reconcile());
 
 for (const worker of [
   controlledRecoveryRuntime.worker,
+  publicationExecutionRuntime.worker,
   repositoryIntakeWorker,
   incidentTriageWorker,
   sandboxRuntime.worker,
@@ -361,8 +372,10 @@ async function shutdown(signal: string): Promise<void> {
   clearInterval(sandboxReconcileTimer);
   clearInterval(investigationReconcileTimer);
   clearInterval(controlledRecoveryReconcileTimer);
+  clearInterval(publicationExecutionReconcileTimer);
   await Promise.all([
     controlledRecoveryRuntime.close(),
+    publicationExecutionRuntime.close(),
     repositoryIntakeWorker.close(),
     incidentTriageWorker.close(),
     sandboxRuntime.close(),
@@ -388,6 +401,7 @@ logger.info(
     incidentTriageConcurrency: config.INCIDENT_TRIAGE_CONCURRENCY,
     sandboxExecutionConcurrency: config.SANDBOX_EXECUTION_CONCURRENCY,
     investigationConcurrency: config.AI_INVESTIGATION_CONCURRENCY,
+    publicationExecutionConcurrency: config.PUBLICATION_EXECUTION_CONCURRENCY,
     outboxPollIntervalMs: config.OUTBOX_POLL_INTERVAL_MS,
     workspaceRoot: config.REPOSITORY_WORKSPACE_ROOT,
   },
