@@ -34,7 +34,7 @@ test.describe('live judged demo journey', () => {
       page.getByText(/DETERMINISTIC SEEDED REPLAY/i).first(),
       'the frozen incident must display the seeded-replay disclosure',
     ).toBeVisible();
-    await expect(page.getByText('ER-20260719-DEMO').first()).toBeVisible();
+    await expect(page.getByText('ER-20260719-DEM001').first()).toBeVisible();
 
     for (const section of ['evidence', 'reproduction', 'investigation', 'treatment-plan']) {
       await page.goto(`/incidents/${frozenIncidentId}/${section}`);
@@ -64,14 +64,16 @@ test.describe('live judged demo journey', () => {
     expect(afterLogout === undefined || afterLogout.value === '').toBe(true);
   });
 
-  test('judge login rejects invalid credentials with a constant response', async ({
-    request,
-  }) => {
+  test('judge login rejects invalid credentials with a constant response', async ({ request }) => {
+    const origin = new URL(process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:3000').origin;
+    const headers = { origin };
     const badUsername = await request.post('/api/judge/session', {
       data: { username: 'not-the-judge', password: judgePassword },
+      headers,
     });
     const badPassword = await request.post('/api/judge/session', {
       data: { username: judgeUsername, password: 'definitely-wrong-password' },
+      headers,
     });
     expect(badUsername.status()).toBe(401);
     expect(badPassword.status()).toBe(401);
