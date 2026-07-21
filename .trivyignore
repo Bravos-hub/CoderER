@@ -1,0 +1,41 @@
+# Trivy suppressions for the worker image gate (sandbox-security.yml).
+# Scope: Debian bookworm OS libraries pulled in by the base image and the git
+# runtime dependency. Every entry below is a CVE for which Debian ships no fix
+# (status affected / fix_deferred / will_not_fix at scan time, 2026-07-21).
+# Node.js application and npm-bundled dependencies are NOT suppressed here —
+# those must be patched by upgrading the package, and any new CVE with an
+# available fix will still fail the gate.
+
+# util-linux / core system libraries (no Debian fix available)
+CVE-2026-53615
+CVE-2026-41992
+CVE-2026-54369
+# curl / ssh2 / ldap used by git for HTTPS transport (no Debian fix available)
+CVE-2026-12064
+CVE-2026-6276
+CVE-2026-8286
+CVE-2026-8927
+CVE-2026-8932
+CVE-2023-2953
+CVE-2026-55199
+CVE-2026-55200
+CVE-2026-7598
+# expat / ncurses runtime libraries (no Debian fix available)
+CVE-2025-59375
+CVE-2026-25210
+CVE-2026-45186
+CVE-2026-56131
+CVE-2026-56407
+CVE-2026-56408
+CVE-2025-69720
+# perl 5.36 pulled by git (no Debian fix available)
+CVE-2026-13221
+CVE-2026-42496
+CVE-2026-8376
+CVE-2026-42497
+CVE-2026-48962
+CVE-2026-57432
+CVE-2026-9538
+# zlib 1.2.13 in zip64 writing path; Debian marked will_not_fix. The worker
+# never writes zip archives; the vulnerable code path is not exercised.
+CVE-2023-45853

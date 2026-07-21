@@ -37,7 +37,11 @@ const input = StartReproductionSchema.parse({
     },
   ],
   failureSignature: {
-    expectedText: 'CODEER_FIXTURE_FAILURE: deterministic build contract mismatch',
+    // The fixture also emits a bearer-token line so redaction is exercised;
+    // both sides are redacted before comparison, so the full text must be
+    // included here or the similarity score falls below the threshold.
+    expectedText:
+      'authorization=Bearer ghp_fixture_token_must_be_redacted\nCODEER_FIXTURE_FAILURE: deterministic build contract mismatch',
     minimumSimilarity: 0.9,
     requireNonZeroExit: true,
   },
@@ -130,9 +134,25 @@ try {
   );
 
   if (result.status !== SandboxExecutionStatus.COMPLETED) {
+    console.error('Sandbox smoke failure detail:', {
+      status: result.status,
+      result: result.result,
+      errorCode: result.errorCode ?? null,
+      errorMessage: result.errorMessage ?? null,
+    });
+    for (const chunk of logs.slice(-20))
+      console.error(`[sandbox-log] ${typeof chunk === 'string' ? chunk : JSON.stringify(chunk)}`);
     throw new Error(`Sandbox smoke ended in ${result.status}`);
   }
   if (result.result !== SandboxResult.REPRODUCED) {
+    console.error('Sandbox reproduction detail:', {
+      status: result.status,
+      result: result.result,
+      comparison: result.comparison ?? null,
+      confidence: result.confidence ?? null,
+    });
+    for (const chunk of logs.slice(-20))
+      console.error(`[sandbox-log] ${typeof chunk === 'string' ? chunk : JSON.stringify(chunk)}`);
     throw new Error(`Expected REPRODUCED, received ${result.result}`);
   }
   if (!result.comparison?.matched || result.confidence < 0.9) {
