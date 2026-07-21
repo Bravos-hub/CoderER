@@ -40,6 +40,7 @@ import { RepositoryWorkspace } from '@codeer/repository';
 import { createSandboxWorker } from './sandbox-execution-worker.js';
 import { createInvestigationWorker } from './investigation-worker.js';
 import { createControlledRecoveryWorker } from './controlled-recovery-worker.js';
+import { createPublicationExecutionWorker } from './publication-execution-worker.js';
 import { createGithubWebhookWorker } from './github-webhook-worker.js';
 
 const config = loadWorkerConfig(process.env);
@@ -101,6 +102,21 @@ const controlledRecoveryQueue = new Queue(CONTROLLED_RECOVERY_QUEUE, {
   },
 });
 const controlledRecoveryRuntime = createControlledRecoveryWorker({ config, connection, workerId });
+
+const publicationExecutionQueue = new Queue(PUBLICATION_EXECUTION_QUEUE, {
+  connection,
+  defaultJobOptions: {
+    attempts: 1,
+    removeOnComplete: { age: 86_400, count: 2_000 },
+    removeOnFail: { age: 604_800, count: 5_000 },
+  },
+});
+const publicationExecutionRuntime = createPublicationExecutionWorker({
+  config,
+  connection,
+  workerId,
+  githubPrivateKey,
+});
 
 const githubWebhookQueue = new Queue(GITHUB_WEBHOOK_PROCESS_QUEUE, {
   connection,
@@ -284,6 +300,11 @@ async function publishOutbox(): Promise<void> {
           await controlledRecoveryQueue.add(CONTROLLED_RECOVERY_JOB, payload, {
             jobId: message.deduplicationKey,
           });
+        } else if (message.topic === PUBLICATION_OUTBOX_TOPIC) {
+          const payload = PublicationExecutionJobSchema.parse(message.payload);
+          await publicationExecutionQueue.add(PUBLICATION_EXECUTION_JOB, payload, {
+            jobId: message.deduplicationKey,
+          });
         } else if (message.topic === GITHUB_WEBHOOK_OUTBOX_TOPIC) {
           const payload = GithubWebhookProcessJobSchema.parse(message.payload);
           await githubWebhookQueue.add(GITHUB_WEBHOOK_PROCESS_JOB, payload, {
@@ -385,6 +406,7 @@ async function shutdown(signal: string): Promise<void> {
     sandboxExecutionQueue.close(),
     investigationQueue.close(),
     controlledRecoveryQueue.close(),
+    publicationExecutionQueue.close(),
     githubWebhookQueue.close(),
   ]);
   await closeDatabase();
