@@ -1,4 +1,4 @@
-FROM node:24-bookworm-slim AS build
+FROM node:26-bookworm-slim AS build
 WORKDIR /workspace
 ENV NEXT_TELEMETRY_DISABLED=1 npm_config_audit=false npm_config_fund=false npm_config_registry=https://registry.npmjs.org npm_config_replace_registry_host=always
 COPY package.json package-lock.json ./
@@ -26,7 +26,7 @@ RUN npm run build -w @codeer/contracts \
   && npm run build -w @codeer/security \
   && npm run build -w @codeer/web
 
-FROM node:24-bookworm-slim AS runtime
+FROM node:26-bookworm-slim AS runtime
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 WORKDIR /workspace
 RUN groupmod -g 10001 node && usermod -u 10001 -g 10001 node
