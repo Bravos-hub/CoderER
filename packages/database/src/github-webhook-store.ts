@@ -31,7 +31,7 @@ export interface ResolvedWebhookTenant {
   repositoryId: string | null;
 }
 
-async function appendPublicationEvent(
+export async function appendPublicationEvent(
   client: PoolClient,
   input: {
     publicationId: string;

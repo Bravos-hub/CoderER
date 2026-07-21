@@ -23,7 +23,7 @@ Verify access from an account that is not already a repository member.
 - Demo account: runtime-configured judge user via `/judge`.
 - Demo password delivery method: private Devpost/judge channel only; do not commit credentials.
 - Seeded broken repository: `CodeER/sandbox-broken-repo` from `test/fixtures/sandbox-broken-repo`.
-- Frozen incident: `ER-20260719-DEMO` / `00000000-0000-4000-8000-000000290004`.
+- Frozen incident: `ER-20260719-DEM001` / `00000000-0000-4000-8000-000000290004`.
 - Reset command: `npm run demo:reset`.
 - Startup command: `npm run demo:start`.
 - HTTPS tunnel command: `npm run demo:tunnel`.

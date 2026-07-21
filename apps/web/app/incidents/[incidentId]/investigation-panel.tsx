@@ -109,7 +109,12 @@ export function InvestigationPanel({ incidentId }: { incidentId: string }) {
         fetch(`/api/investigations/${selectedId}/diagnosis`, { cache: 'no-store' }),
         fetch(`/api/investigations/${selectedId}/treatment-plans`, { cache: 'no-store' }),
       ]);
-    if (detailResponse.ok) setSelected((await detailResponse.json()) as Investigation);
+    if (detailResponse.ok) {
+      const body = (await detailResponse.json()) as Investigation & {
+        investigation?: Investigation;
+      };
+      setSelected(body.investigation ?? body);
+    }
     if (eventsResponse.ok) setEvents((await eventsResponse.json()) as InvestigationEvent[]);
     if (toolsResponse.ok) setToolCalls((await toolsResponse.json()) as InvestigationToolCall[]);
     if (diagnosisResponse.ok) setDiagnosis((await diagnosisResponse.json()) as Diagnosis);
