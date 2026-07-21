@@ -4,7 +4,7 @@ import {
   GithubWebhookProcessJobSchema,
   type GithubWebhookProcessJob as WebhookProcessPayload,
 } from '@codeer/contracts';
-import { GithubWebhookStore } from '@codeer/database';
+import { GithubWebhookStore, MergeClosureStore } from '@codeer/database';
 import { logger } from '@codeer/logger';
 
 /**
@@ -18,8 +18,10 @@ export function createGithubWebhookWorker(options: {
   connection: ConnectionOptions;
   concurrency?: number;
   store?: GithubWebhookStore;
+  closureStore?: MergeClosureStore;
 }): Worker {
   const store = options.store ?? new GithubWebhookStore();
+  const closureStore = options.closureStore ?? new MergeClosureStore();
   return new Worker(
     'github-webhook-process',
     async (job: Job) => {
@@ -27,7 +29,7 @@ export function createGithubWebhookWorker(options: {
         throw new Error(`Unsupported webhook job: ${job.name}`);
       }
       const payload = GithubWebhookProcessJobSchema.parse(job.data);
-      const applied = await applyWebhookEvent(store, payload);
+      const applied = await applyWebhookEvent(store, closureStore, payload);
       await store.markWebhookDeliveryStatus(
         payload.organizationId,
         payload.deliveryId,
@@ -42,6 +44,7 @@ export function createGithubWebhookWorker(options: {
 
 async function applyWebhookEvent(
   store: GithubWebhookStore,
+  closureStore: MergeClosureStore,
   payload: WebhookProcessPayload,
 ): Promise<boolean> {
   const normalized = payload.normalized;
@@ -57,6 +60,11 @@ async function applyWebhookEvent(
       bodyDigest: (normalized.bodyDigest as string | null) ?? null,
       correlationId: payload.correlationId,
     });
+    await closureStore.evaluateAndPersistMergeReadiness(
+      payload.organizationId,
+      publicationId,
+      payload.correlationId,
+    );
     return true;
   }
   if (payload.eventName === 'check_run' || payload.eventName === 'check_suite') {
@@ -76,6 +84,11 @@ async function applyWebhookEvent(
       rawConclusion: (normalized.rawConclusion as string | null) ?? null,
       correlationId: payload.correlationId,
     });
+    await closureStore.evaluateAndPersistMergeReadiness(
+      payload.organizationId,
+      publicationId,
+      payload.correlationId,
+    );
     return true;
   }
   if (payload.eventName === 'pull_request') {
@@ -96,6 +109,15 @@ async function applyWebhookEvent(
       logger.info(
         { publicationId: result.publicationId, deliveryId: payload.deliveryId },
         'Human merge observed via signed webhook',
+      );
+      const verification = await closureStore.applyPostMergeVerification(
+        payload.organizationId,
+        result.publicationId,
+        payload.correlationId,
+      );
+      logger.info(
+        { publicationId: result.publicationId, ...verification },
+        'Post-merge verification applied',
       );
     }
     return true;

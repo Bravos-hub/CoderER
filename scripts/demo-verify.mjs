@@ -270,17 +270,23 @@ try {
     `${prRecord.rows[0]?.number} ${prRecord.rows[0]?.url}`,
   );
   const pubEvents = await client.query(
-    `SELECT "payload" FROM "PublicationEvent" WHERE "publicationId" = $1`,
+    `SELECT "payload", "correlationId" FROM "PublicationEvent" WHERE "publicationId" = $1`,
     [pub.id],
   );
-  const unlabelledPubEvents = pubEvents.rows.filter(
+  // Provenance labels mark seeded records created by demo-reset. Events
+  // appended later by live system behavior (webhook sync, readiness
+  // evaluations) are genuinely live and must not carry the seeded label.
+  const seededPubEvents = pubEvents.rows.filter(
+    (row) => row.correlationId === 'demo-primary-incident-20260719',
+  );
+  const unlabelledPubEvents = seededPubEvents.filter(
     (row) => row.payload?.provenance?.providerExecution !== false,
   );
   check(
-    'publication events carry the seeded-replay provenance label',
-    pubEvents.rowCount > 0 && unlabelledPubEvents.length === 0,
+    'seeded publication events carry the seeded-replay provenance label',
+    seededPubEvents.length > 0 && unlabelledPubEvents.length === 0,
   );
-  const githubUrls = pubEvents.rows.flatMap((row) => findGithubUrls(row.payload));
+  const githubUrls = seededPubEvents.flatMap((row) => findGithubUrls(row.payload));
   check('no seeded publication record links to github.com', githubUrls.length === 0, githubUrls[0]);
 
   // 10. Restored fixture repository exists on disk.

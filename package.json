@@ -57,6 +57,7 @@
     "test:evaluation:investigation": "tsx scripts/evaluate-investigation-engine.ts",
     "test:integration:investigation": "node scripts/smoke-investigation-persistence.mjs",
     "test:integration:recovery": "node scripts/smoke-recovery-persistence.mjs",
+    "test:integration:publication": "node scripts/smoke-publication-closure.mjs",
     "recovery:reconcile": "node scripts/reconcile-recoveries.mjs",
     "test:evaluation:recovery": "tsx scripts/evaluate-recovery-engine.ts",
     "db:validate:recovery-static": "node scripts/validate-recovery-migration.mjs",

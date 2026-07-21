@@ -8,6 +8,7 @@ export default tseslint.config(
       '**/node_modules/**',
       '**/.next/**',
       '**/dist/**',
+      '**/dist.root-owned-stale/**',
       '**/coverage/**',
       '**/generated/**',
       '**/package-lock.json',
