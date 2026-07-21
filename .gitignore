@@ -21,3 +21,4 @@ secrets/
 *.key
 playwright-report/
 test-results/
+*.tsbuildinfo

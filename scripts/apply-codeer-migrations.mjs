@@ -98,6 +98,14 @@ const migrations = [
     file: '../packages/database/prisma/migrations/20260719000100_sprint8_command_center/migration.sql',
     requiredTables: ['OrganizationSetting'],
   },
+  {
+    id: '20260721000100_github_webhook_ingestion',
+    file: '../packages/database/prisma/migrations/20260721000100_github_webhook_ingestion/migration.sql',
+    // Function-only migration: CREATE OR REPLACE is idempotent, and an empty
+    // requiredTables list must not trigger the discovered-baseline shortcut.
+    alwaysApply: true,
+    requiredTables: [],
+  },
 ];
 
 function checksum(content) {
@@ -154,7 +162,7 @@ try {
         `Partial migration detected for ${migration.id}; missing: ${missing.join(', ')}`,
       );
     }
-    if (present.size === migration.requiredTables.length) {
+    if (present.size === migration.requiredTables.length && !migration.alwaysApply) {
       await client.query(
         `INSERT INTO "CodeerMigration" ("id","checksum","executionMs","discoveredBaseline")
          VALUES ($1,$2,0,TRUE)`,

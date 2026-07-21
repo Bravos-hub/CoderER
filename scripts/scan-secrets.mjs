@@ -11,6 +11,12 @@ const ignoredDirectories = new Set([
   'artifacts',
 ]);
 const ignoredFiles = new Set(['package-lock.json']);
+// Local dotenv files are gitignored by project convention and are the
+// sanctioned place for real development secrets; they never ship in a clean
+// checkout, so the scanner treats them like it treats .git internals.
+function isDotenvFile(name) {
+  return name === '.env' || name.startsWith('.env.');
+}
 const patterns = [
   { name: 'private key', value: /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/ },
   {
@@ -28,7 +34,8 @@ async function filesUnder(directory) {
     if (entry.isDirectory() && ignoredDirectories.has(entry.name)) continue;
     const absolute = path.join(directory, entry.name);
     if (entry.isDirectory()) output.push(...(await filesUnder(absolute)));
-    else if (entry.isFile() && !ignoredFiles.has(entry.name)) output.push(absolute);
+    else if (entry.isFile() && !ignoredFiles.has(entry.name) && !isDotenvFile(entry.name))
+      output.push(absolute);
   }
   return output;
 }
